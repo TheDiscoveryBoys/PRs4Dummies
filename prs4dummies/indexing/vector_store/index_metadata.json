@@ -1,0 +1,8 @@
+{
+  "created_at": "2025-08-22 22:43:27",
+  "embedding_model": "all-mpnet-base-v2",
+  "chunk_size": 1500,
+  "chunk_overlap": 300,
+  "total_chunks": 287,
+  "vector_dimension": 768
+}

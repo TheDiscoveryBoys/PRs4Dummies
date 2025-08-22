@@ -1,0 +1,18 @@
+# Core dependencies
+langchain>=0.1.0
+langchain-community>=0.0.10
+sentence-transformers>=2.2.0
+tqdm>=4.64.0
+python-dotenv>=1.0.0
+torch>=2.0.0
+transformers>=4.30.0
+numpy>=1.24.0
+
+# CPU version (default for laptop testing)
+faiss-cpu>=1.7.4
+
+# For GPU acceleration (uncomment when moving to Colab or GPU machine)
+# faiss-gpu>=1.7.4
+
+# Google Colab specific (automatically available in Colab)
+# google-colab
