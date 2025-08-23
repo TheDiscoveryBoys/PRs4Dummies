@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 class LocalHuggingFaceLLM(LLM):
     """Local HuggingFace LLM wrapper for LangChain compatibility."""
     
-    model_name: str = "gpt2"  # GPT-2 has better support for longer sequences
-    max_length: int = 1024  # Keep within model limits
+    model_name: str = "distilgpt2"  # Smaller, more efficient GPT-2 variant
+    max_length: int = 512  # Conservative limit
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -53,11 +53,12 @@ class LocalHuggingFaceLLM(LLM):
                 "text-generation",
                 model=self._model,
                 tokenizer=self._tokenizer,
-                max_new_tokens=512,  # Generate up to 512 new tokens
+                max_new_tokens=128,  # Generate up to 128 new tokens
                 do_sample=True,
                 temperature=0.7,
                 pad_token_id=self._tokenizer.eos_token_id,
-                truncation=True  # Enable truncation for long inputs
+                truncation=True,  # Enable truncation for long inputs
+                max_length=512  # Conservative limit for distilgpt2
             )
             logger.info("Model loaded successfully")
         except Exception as e:
@@ -75,7 +76,7 @@ class LocalHuggingFaceLLM(LLM):
         
         try:
             # Generate response
-            result = self._pipeline(prompt, max_new_tokens=512, do_sample=True)
+            result = self._pipeline(prompt, max_new_tokens=128, do_sample=True)
             generated_text = result[0]['generated_text']
             
             logger.info(f"Generated text length: {len(generated_text)}")
@@ -177,8 +178,8 @@ class RAGCore:
             # Initialize LLM (using local HuggingFace model for demo)
             logger.info("Initializing local LLM...")
             self.llm = LocalHuggingFaceLLM(
-                model_name="microsoft/DialoGPT-large",  # Larger model with longer context
-                max_length=2048  # Increased for longer context
+                model_name="distilgpt2",  # Smaller, more efficient GPT-2 variant
+                max_length=512  # Conservative limit
             )
             
             # Create prompt template
@@ -223,7 +224,7 @@ ANSWER:"""
             # Create retriever
             retriever = self.vector_store.as_retriever(
                 search_type="similarity",
-                search_kwargs={"k": 5}  # Retrieve top 5 most relevant chunks
+                search_kwargs={"k": 2}  # Retrieve top 2 most relevant chunks to minimize prompt length
             )
             
             # Create the RAG chain
