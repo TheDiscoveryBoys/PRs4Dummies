@@ -19,7 +19,7 @@ from langchain.chains import RetrievalQA
 from langchain.llms.base import LLM
 
 # For local HuggingFace models
-from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
+from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 
 # Configure logging
@@ -28,106 +28,53 @@ logger = logging.getLogger(__name__)
 
 class LocalHuggingFaceLLM(LLM):
     """Local HuggingFace LLM wrapper for LangChain compatibility."""
-    
-    model_name: str = "distilgpt2"  # Smaller, more efficient GPT-2 variant
-    max_length: int = 512  # Conservative limit
-    
+
+    model_name: str = "google/flan-t5-base" # <-- Change the model name
+    max_length: int = 512
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._pipeline = None
-        self._tokenizer = None
-        self._model = None
-        
+
     def _load_model(self):
-        """Load the model and tokenizer."""
+        """Load the T5 model and tokenizer."""
         try:
             logger.info(f"Loading model: {self.model_name}")
-            self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self._model = AutoModelForCausalLM.from_pretrained(self.model_name)
-            
-            # Add padding token if not present
-            if self._tokenizer.pad_token is None:
-                self._tokenizer.pad_token = self._tokenizer.eos_token
-                
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
+
             self._pipeline = pipeline(
-                "text-generation",
-                model=self._model,
-                tokenizer=self._tokenizer,
-                max_new_tokens=128,  # Generate up to 128 new tokens
-                do_sample=True,
-                temperature=0.7,
-                pad_token_id=self._tokenizer.eos_token_id,
-                truncation=True,  # Enable truncation for long inputs
-                max_length=512  # Conservative limit for distilgpt2
+                "text2text-generation", # <-- Change the pipeline task
+                model=model,
+                tokenizer=tokenizer,
+                max_length=self.max_length,
+                truncation=True,
             )
             logger.info("Model loaded successfully")
         except Exception as e:
             logger.error(f"Error loading model: {e}")
             raise
-    
+
     @property
     def _llm_type(self) -> str:
-        return "local_huggingface"
-    
+        return "local_huggingface_t5"
+
     def _call(self, prompt: str, stop: List[str] = None, **kwargs) -> str:
-        """Generate text using the local model."""
+        """Generate text using the local T5 model."""
         if self._pipeline is None:
             self._load_model()
-        
+
         try:
-            # Generate response
-            result = self._pipeline(prompt, max_new_tokens=128, do_sample=True)
-            generated_text = result[0]['generated_text']
-            
-            logger.info(f"Generated text length: {len(generated_text)}")
-            logger.info(f"Prompt length: {len(prompt)}")
-            
-            # Try to find the answer part more intelligently
-            if "ANSWER:" in prompt:
-                # Look for the answer after "ANSWER:"
-                answer_start = prompt.find("ANSWER:")
-                if answer_start != -1:
-                    # Find where the answer should start in generated text
-                    answer_marker = "ANSWER:"
-                    if answer_marker in generated_text:
-                        answer_start_in_generated = generated_text.find(answer_marker) + len(answer_marker)
-                        response = generated_text[answer_start_in_generated:].strip()
-                    else:
-                        # Fallback: try to extract after prompt
-                        response = generated_text[len(prompt):].strip()
-                else:
-                    response = generated_text[len(prompt):].strip()
-            else:
-                # Fallback: remove the input prompt from the response
-                response = generated_text[len(prompt):].strip()
-            
-            # If response is empty or too short, try alternative extraction
-            if not response or len(response) < 10:
-                logger.warning("Response too short, trying alternative extraction")
-                # Look for common patterns that might indicate the start of an answer
-                for marker in ["\n\n", "\n", ". ", "! ", "? "]:
-                    if marker in generated_text:
-                        parts = generated_text.split(marker)
-                        if len(parts) > 1:
-                            # Take the last part as it's likely the answer
-                            response = parts[-1].strip()
-                            if response and len(response) > 10:
-                                break
-            
-            # Stop at stop sequences if provided
-            if stop:
-                for stop_seq in stop:
-                    if stop_seq in response:
-                        response = response[:response.find(stop_seq)]
-                        break
-            
-            logger.info(f"Final response length: {len(response)}")
-            logger.info(f"Response preview: {response[:100]}...")
-            
-            return response if response else "I couldn't generate a proper response. Please try rephrasing your question."
+            # Generate response. T5 models are much better at just returning the answer.
+            result = self._pipeline(prompt)
+            response = result[0]['generated_text']
+
+            logger.info(f"Response preview: {response[:150]}...")
+            return response if response else "The model returned an empty response."
         except Exception as e:
             logger.error(f"Error generating response: {e}")
             return f"I encountered an error while generating a response: {str(e)}"
+
 
 class RAGCore:
     """Core RAG functionality for answering questions about pull requests."""
@@ -141,7 +88,7 @@ class RAGCore:
             embedding_model_name: Name of the embedding model to use
         """
         self.vector_store_path = vector_store_path or "vector_store"
-        self.embedding_model_name = embedding_model_name or "all-mpnet-base-v2"
+        self.embedding_model_name = embedding_model_name or "nomic-ai/nomic-embed-text-v1.5"
         
         # Initialize components
         self.embeddings = None
@@ -159,7 +106,10 @@ class RAGCore:
             logger.info(f"Loading embedding model: {self.embedding_model_name}")
             self.embeddings = HuggingFaceEmbeddings(
                 model_name=self.embedding_model_name,
-                model_kwargs={'device': 'cpu'}  # Use CPU for compatibility
+                model_kwargs={
+                    'device': 'cpu',  # Use CPU for compatibility
+                    'trust_remote_code': True  # Required for some models like nomic-embed
+                }
             )
             
             # Load FAISS vector store
@@ -178,7 +128,7 @@ class RAGCore:
             # Initialize LLM (using local HuggingFace model for demo)
             logger.info("Initializing local LLM...")
             self.llm = LocalHuggingFaceLLM(
-                model_name="distilgpt2",  # Smaller, more efficient GPT-2 variant
+                model_name="google/flan-t5-base",  # Smaller, more efficient GPT-2 variant
                 max_length=512  # Conservative limit
             )
             
@@ -196,25 +146,35 @@ class RAGCore:
     
     def _create_prompt_template(self):
         """Create the prompt template for the RAG system."""
+#         template = """You are an expert software engineer analyzing pull requests from the Ansible repository.
+
+# Your task is to answer questions mainly using the context provided from the pull request data - prioritise using this data in all scenarios.
+# If you do not use that pull request data, provide an answer with a disclaimer that says "The following information has been sourced from outside the ansible repository".
+
+# IMPORTANT RULES:
+# 1. Base your answer ONLY on the provided context if possible. If not possible, refer to your knowledge with the disclaimer included in the response.
+# 2. If you're not sure about something, say so
+# 3. Be specific and reference the pull request details when possible
+# 4. Focus on the technical aspects and code changes
+# 5. If asked about code, explain the changes clearly
+# 6. Always start your answer with a clear, direct response to the question
+
+# CONTEXT (Pull Request Information):
+# {context}
+
+# QUESTION: {question}
+
+# ANSWER:"""
         template = """You are an expert software engineer analyzing pull requests from the Ansible repository.
 
-Your task is to answer questions based ONLY on the context provided from the pull request data.
-If the context doesn't contain enough information to answer the question, say "I don't have enough information in the context to answer that question."
+        Answer the questions.
 
-IMPORTANT RULES:
-1. Base your answer ONLY on the provided context
-2. If you're not sure about something, say so
-3. Be specific and reference the pull request details when possible
-4. Focus on the technical aspects and code changes
-5. If asked about code, explain the changes clearly
-6. Always start your answer with a clear, direct response to the question
+        CONTEXT (Pull Request Information):
+        {context}
 
-CONTEXT (Pull Request Information):
-{context}
+        QUESTION: {question}
 
-QUESTION: {question}
-
-ANSWER:"""
+        ANSWER:"""
         
         self.prompt_template = PromptTemplate.from_template(template)
     
@@ -247,7 +207,7 @@ ANSWER:"""
     
     def answer_question(self, question: str) -> Dict[str, Any]:
         """
-        Answer a question using the RAG pipeline.
+        Answer a question using the RAG pipeline
         
         Args:
             question: The user's question about pull requests
@@ -272,8 +232,23 @@ ANSWER:"""
             sources = []
             for doc in source_documents:
                 if hasattr(doc, 'metadata'):
+                    pr_number = doc.metadata.get("pr_number", "Unknown")
+                    pr_url = doc.metadata.get("source", doc.metadata.get("pr_url", "Unknown"))
+                    title = doc.metadata.get("title", "")
+                    
+                    # Create a meaningful source description
+                    if pr_number != "Unknown" and title:
+                        source_description = f"PR #{pr_number}: {title}"
+                    elif pr_number != "Unknown":
+                        source_description = f"PR #{pr_number}"
+                    else:
+                        source_description = "Unknown PR"
+                    
                     sources.append({
-                        "source": doc.metadata.get("source", "Unknown"),
+                        "source": pr_url,
+                        "source_description": source_description,
+                        "pr_number": pr_number,
+                        "title": title,
                         "chunk_id": doc.metadata.get("chunk_id", "Unknown"),
                         "relevance_score": doc.metadata.get("score", "N/A")
                     })

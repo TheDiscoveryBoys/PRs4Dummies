@@ -51,7 +51,7 @@ except ImportError as e:
 class IndexingConfig:
     """Configuration for the indexing process."""
     # Embedding model - optimized for code and technical content
-    embedding_model: str = "all-mpnet-base-v2"  # Better than MiniLM for technical content
+    embedding_model: str = "nomic-ai/nomic-embed-text-v1.5"  # Better than MiniLM for technical content
     
     # Chunking configuration
     chunk_size: int = 1500  # Larger chunks for better context
@@ -169,7 +169,10 @@ class PRIndexer:
             self.logger.info(f"Initializing embedding model: {self.config.embedding_model}")
             
             # Configure model for the detected device
-            model_kwargs = {'device': self.device}
+            model_kwargs = {
+                'device': self.device,
+                'trust_remote_code': True  # Required for some models like nomic-embed
+            }
             encode_kwargs = {'normalize_embeddings': True}  # Important for FAISS
             
             # Add device-specific optimizations
@@ -404,7 +407,9 @@ class PRIndexer:
             "review_count": len(reviews),
             "content_length": len(content),
             "source_type": "github_pr",
-            "repository": "ansible/ansible"
+            "repository": "ansible/ansible",
+            "pr_url": f"https://github.com/ansible/ansible/pull/{pr_number}",
+            "source": f"https://github.com/ansible/ansible/pull/{pr_number}"  # For RAG source tracking
         }
         
         return Document(page_content=content, metadata=metadata)
@@ -617,7 +622,7 @@ Examples:
                        help="Directory containing scraped PR JSON files")
     parser.add_argument("--output-dir", default="vector_store",
                        help="Directory to save the FAISS vector store")
-    parser.add_argument("--model", default="all-mpnet-base-v2",
+    parser.add_argument("--model", default="nomic-ai/nomic-embed-text-v1.5",
                        help="Hugging Face embedding model name")
     parser.add_argument("--chunk-size", type=int, default=1500,
                        help="Maximum chunk size in characters")

@@ -52,7 +52,7 @@ def test_rag_core():
         
         # Test with a simple question
         print("\n🤔 Testing question answering...")
-        test_question = "What is Ansible?"
+        test_question = "Who commented on PR 85673?"
         print(f"   Question: {test_question}")
         
         result = rag.answer_question(test_question)
@@ -63,7 +63,10 @@ def test_rag_core():
         if result.get('sources'):
             print("   Source details:")
             for i, source in enumerate(result['sources'][:3]):  # Show first 3 sources
-                print(f"     {i+1}. {source.get('source', 'Unknown')}")
+                source_url = source.get('source', 'Unknown')
+                source_desc = source.get('source_description', 'Unknown')
+                print(f"     {i+1}. {source_desc}")
+                print(f"        URL: {source_url}")
         
         print("\n🎉 RAG Core test completed successfully!")
         return True

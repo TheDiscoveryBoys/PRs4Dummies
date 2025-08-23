@@ -87,7 +87,7 @@ async def startup_event():
         
         # Get vector store path from environment or use default
         vector_store_path = os.getenv("VECTOR_STORE_PATH", "../indexing/vector_store")
-        embedding_model = os.getenv("EMBEDDING_MODEL", "all-mpnet-base-v2")
+        embedding_model = os.getenv("EMBEDDING_MODEL", "nomic-ai/nomic-embed-text-v1.5")
         
         logger.info(f"Loading vector store from: {vector_store_path}")
         logger.info(f"Using embedding model: {embedding_model}")
