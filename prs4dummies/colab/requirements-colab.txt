@@ -1,0 +1,22 @@
+# Requirements for Google Colab
+# Install with: !pip install -r requirements-colab.txt
+
+# Core LangChain and RAG dependencies
+langchain>=0.1.0
+langchain-community>=0.0.10
+
+# Embedding and vector store
+sentence-transformers>=2.2.0
+faiss-gpu>=1.7.4  # Use faiss-cpu if no GPU
+
+# NLP and ML libraries  
+transformers>=4.30.0
+torch>=2.0.0
+einops  # Required for nomic-embed models
+
+# Utilities
+tqdm
+numpy>=1.24.0
+
+# Optional: For better performance
+# accelerate  # Hugging Face acceleration library
