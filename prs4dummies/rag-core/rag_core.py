@@ -96,16 +96,22 @@ class RAGCore:
     def _create_prompt_template(self):
         """Create the prompt template for the RAG system."""
         # --- CHANGED: A stricter, more reliable prompt for RAG ---
-        template = """You are an expert software engineer and AI assistant. Your task is to analyze pull requests from the Ansible repository.
-Use the following pieces of retrieved context to answer the question. If you don't know the answer based on the context, just say that you don't know. Do not try to make up an answer.
-Keep the answer concise and focus on the technical details.
+        template = """You are an expert Principal Software Engineer and AI assistant. Your task is to provide an insightful analysis of a pull request based on the provided context.
 
-CONTEXT:
-{context}
+        **Instructions:**
+        1.  **Summarize:** Begin with a concise summary of the main purpose of the pull request.
+        2.  **Analyze the "Why":** Based on the code diff and description, infer the developer's likely intent. Why did they make this change? What problem does it solve?
+        3.  **Speculate on Impact:** Use your general software engineering knowledge to speculate on the potential impact of the changes. Consider aspects like performance, maintainability, potential bugs, or improvements to code quality.
+        4.  **Grounding:** Base your analysis primarily on the provided context, but use your expert knowledge to interpret the code and infer intent.
 
-QUESTION: {question}
+        **CONTEXT FROM THE PULL REQUEST:**
+        {context}
 
-ANSWER:"""
+        **QUESTION:**
+        {question}
+
+        **EXPERT ANALYSIS:**
+        """
         # ---------------------------------------------------------
         
         self.prompt_template = PromptTemplate.from_template(template)

@@ -319,7 +319,7 @@ class ColabPRIndexer:
             diff_content = f"# Code Diff for PR #{pr_number}\n**Author:** {author}\n\n```diff\n{diff}\n```"
             
             diff_metadata = base_metadata.copy()
-            diff_metadata["document_type"] = "code_diff"
+            diff_metadata["document_type"] = "diff"
             diff_metadata["content_length"] = len(diff_content)
             
             output_documents.append(Document(page_content=diff_content, metadata=diff_metadata))
