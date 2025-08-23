@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class LocalHuggingFaceLLM(LLM):
     """Local HuggingFace LLM wrapper for LangChain compatibility."""
 
-    model_name: str = "google/flan-t5-base" # <-- Change the model name
+    model_name: str = "google/gemma-2b-it" # <-- Change the model name
     max_length: int = 512
 
     def __init__(self, **kwargs):
@@ -128,7 +128,7 @@ class RAGCore:
             # Initialize LLM (using local HuggingFace model for demo)
             logger.info("Initializing local LLM...")
             self.llm = LocalHuggingFaceLLM(
-                model_name="google/flan-t5-base",  # Smaller, more efficient GPT-2 variant
+                model_name="google/gemma-2b-it",  # Smaller, more efficient GPT-2 variant
                 max_length=512  # Conservative limit
             )
             

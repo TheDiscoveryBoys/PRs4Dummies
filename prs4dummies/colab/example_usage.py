@@ -56,7 +56,7 @@ print("✅ Installation complete!")
 print("📥 Downloading indexer script...")
 
 # Method 1: Download from GitHub (if public)
-# !wget https://raw.githubusercontent.com/yourusername/PRs4Dummies/main/colab/colab_indexer.py
+# !wget https://github.com/TheDiscoveryBoys/PRs4Dummies/raw/colab-attempt/colab/colab_indexer.py
 
 # Method 2: Upload manually (for now)
 if IN_COLAB:

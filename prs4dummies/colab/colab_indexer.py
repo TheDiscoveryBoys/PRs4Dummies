@@ -26,7 +26,12 @@ except ImportError:
 from langchain.docstore.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+try:
+    # Try the newer package first
+    from langchain_huggingface import HuggingFaceEmbeddings
+except ImportError:
+    # Fallback to the older package
+    from langchain_community.embeddings import HuggingFaceEmbeddings
 from tqdm.auto import tqdm
 import torch
 
@@ -117,8 +122,8 @@ class ColabPRIndexer:
             if self.device == "cuda":
                 # GPU optimizations
                 encode_kwargs['batch_size'] = self.batch_size
-                model_kwargs['torch_dtype'] = 'float16'  # Use half precision for GPU efficiency
-                print(f"⚡ GPU optimizations: float16 precision, batch size {self.batch_size}")
+                # Note: torch_dtype is handled by the model itself, not passed to SentenceTransformer
+                print(f"⚡ GPU optimizations: batch size {self.batch_size}")
             else:
                 # CPU optimizations
                 encode_kwargs['batch_size'] = self.batch_size
@@ -486,7 +491,7 @@ def setup_colab_environment():
     
     # Check other dependencies
     dependencies = [
-        "langchain", "langchain-community", "sentence-transformers", 
+        "langchain", "langchain-community", "langchain-huggingface", "sentence-transformers", 
         "transformers", "einops", "tqdm"
     ]
     

@@ -19,14 +19,14 @@ This directory contains everything needed to run **high-performance PR indexing 
 ### 1️⃣ **Setup Environment**
 ```python
 # In a new Colab notebook cell:
-!wget https://raw.githubusercontent.com/yourusername/PRs4Dummies/main/colab/setup_colab.py
+!wget https://github.com/TheDiscoveryBoys/PRs4Dummies/raw/colab-attempt/colab/setup_colab.py
 !python setup_colab.py
 ```
 
 ### 2️⃣ **Upload Your Data** 
 ```python
 # Upload the indexer script and your data
-!wget https://raw.githubusercontent.com/yourusername/PRs4Dummies/main/colab/colab_indexer.py
+!wget https://github.com/TheDiscoveryBoys/PRs4Dummies/raw/colab-attempt/colab/colab_indexer.py
 
 # Run the indexer (will prompt for file uploads)
 %run colab_indexer.py
@@ -62,13 +62,13 @@ The script automatically creates and downloads a `vector_store.zip` file contain
 3. **Run setup**:
    ```python
    # Download and run setup
-   !wget https://raw.githubusercontent.com/yourusername/PRs4Dummies/main/colab/setup_colab.py
+   !wget https://github.com/TheDiscoveryBoys/PRs4Dummies/raw/colab-attempt/colab/setup_colab.py
    !python setup_colab.py
    ```
 
 4. **Download indexer**:
    ```python
-   !wget https://raw.githubusercontent.com/yourusername/PRs4Dummies/main/colab/colab_indexer.py
+   !wget https://github.com/TheDiscoveryBoys/PRs4Dummies/raw/colab-attempt/colab/colab_indexer.py
    ```
 
 5. **Run indexing**:
