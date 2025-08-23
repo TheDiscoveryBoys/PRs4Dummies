@@ -6,12 +6,14 @@ This module contains the core logic for the RAG pipeline using OpenAI's API as t
 
 import os
 import logging
+import pickle
 from typing import List, Dict, Any
 from pathlib import Path
 
 # --- CHANGED: Imports for OpenAI and environment variables ---
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
+from langchain.retrievers import BM25Retriever, EnsembleRetriever
 # -----------------------------------------------------------
 
 # LangChain imports
@@ -24,9 +26,6 @@ from langchain.chains import RetrievalQA
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- REMOVED: The entire LocalHuggingFaceLLM class and transformers/torch imports ---
-
-
 class RAGCore:
     """Core RAG functionality for answering questions about pull requests."""
     
@@ -35,23 +34,22 @@ class RAGCore:
         Initialize the RAG core.
         """
         self.vector_store_path = vector_store_path or "vector_store"
-        self.embedding_model_name = embedding_model_name or "jinaai/jina-embeddings-v2-base-code"
+        self.embedding_model_name = embedding_model_name or "BAAI/bge-m3"
         
         self.embeddings = None
         self.vector_store = None
         self.llm = None
         self.rag_chain = None
+        self.all_chunks = None
         
         self._load_components()
     
     def _load_components(self):
         """Load all necessary components for the RAG pipeline."""
         try:
-            # --- CHANGED: Load API key from .env file ---
             load_dotenv()
             if "OPENAI_API_KEY" not in os.environ:
                 raise ValueError("OPENAI_API_KEY not found. Please set it in your .env file.")
-            # -----------------------------------------------
 
             # Load embedding model (this part stays the same)
             logger.info(f"Loading embedding model: {self.embedding_model_name}")
@@ -74,6 +72,14 @@ class RAGCore:
                 embeddings=self.embeddings,
                 allow_dangerous_deserialization=True
             )
+            chunks_path = vector_store_dir / "chunks.pkl"
+            if not chunks_path.exists():
+                raise FileNotFoundError(f"chunks.pkl not found in {vector_store_dir}. Please re-run your indexer.")
+            
+            logger.info("Loading raw document chunks for keyword search...")
+            with open(chunks_path, "rb") as f:
+                self.all_chunks = pickle.load(f)
+            logger.info(f"Loaded {len(self.all_chunks)} chunks successfully.")
             logger.info(f"Vector store loaded with {self.vector_store.index.ntotal} documents")
             
             # --- CHANGED: Initialize OpenAI LLM instead of local model ---
@@ -97,8 +103,9 @@ class RAGCore:
         """Create the prompt template for the RAG system."""
         # --- CHANGED: A stricter, more reliable prompt for RAG ---
         template = """You are an expert Principal Software Engineer and AI assistant. Your task is to provide an insightful analysis of a pull request based on the provided context.
-
+        The importance of the instructions are ranked with 0 being the most important and 5 being the least important.
         **Instructions:**
+        0.  **Simple Answer:** If the question is simple, provide a simple answer. It may not be related to the diff of the PR, for example, it may be a question about the PR title or description.
         1.  **Summarize:** Begin with a concise summary of the main purpose of the pull request.
         2.  **Analyze the "Why":** Based on the code diff and description, infer the developer's likely intent. Why did they make this change? What problem does it solve?
         3.  **Speculate on Impact:** Use your general software engineering knowledge to speculate on the potential impact of the changes. Consider aspects like performance, maintainability, potential bugs, or improvements to code quality.
@@ -117,22 +124,42 @@ class RAGCore:
         self.prompt_template = PromptTemplate.from_template(template)
     
     def _create_rag_chain(self):
-        """Create the RAG chain."""
+        """Create the RAG chain using a hybrid EnsembleRetriever."""
         try:
-            retriever = self.vector_store.as_retriever(
-                search_type="similarity",
-                search_kwargs={"k": 75}  # Can increase K for more powerful models like GPT
+            if not self.all_chunks:
+                raise ValueError("Document chunks not loaded. Cannot create BM25 retriever.")
+
+            # 1. Set up the Keyword Retriever (BM25)
+            # logger.info("Initializing BM25 keyword retriever...")
+            # bm25_retriever = BM25Retriever.from_documents(self.all_chunks)
+            # bm25_retriever.k = 10
+
+            # 2. Set up the Semantic Retriever (FAISS)
+            logger.info("Initializing FAISS semantic retriever...")
+            faiss_retriever = self.vector_store.as_retriever(search_kwargs={"k": 20})
+
+            # 3. Initialize the EnsembleRetriever
+            logger.info("Initializing EnsembleRetriever with weights...")
+            self.ensemble_retriever = EnsembleRetriever(
+                # retrievers=[bm25_retriever, faiss_retriever],
+                retrievers=[faiss_retriever],
+                weights=[1]  # Give 75% weight to keyword matches
             )
-            
+
+            # 4. Create the RAG chain
             self.rag_chain = RetrievalQA.from_chain_type(
                 llm=self.llm,
                 chain_type="stuff",
-                retriever=retriever,
+                retriever=self.ensemble_retriever, # Use the ensemble retriever
                 chain_type_kwargs={"prompt": self.prompt_template},
                 return_source_documents=True
             )
             
-            logger.info("RAG chain created successfully")
+            logger.info("RAG chain created successfully with EnsembleRetriever")
+            
+        except Exception as e:
+            logger.error(f"Error creating RAG chain: {e}")
+            raise
             
         except Exception as e:
             logger.error(f"Error creating RAG chain: {e}")

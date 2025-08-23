@@ -87,7 +87,7 @@ async def startup_event():
         
         # Get vector store path from environment or use default
         vector_store_path = os.getenv("VECTOR_STORE_PATH", "../indexing/vector_store")
-        embedding_model = os.getenv("EMBEDDING_MODEL", "jinaai/jina-embeddings-v2-base-code")
+        embedding_model = os.getenv("EMBEDDING_MODEL", "BAAI/bge-m3")
         
         logger.info(f"Loading vector store from: {vector_store_path}")
         logger.info(f"Using embedding model: {embedding_model}")

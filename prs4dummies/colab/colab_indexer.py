@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 import hashlib
+import pickle
 
 # Check if we're in Colab
 try:
@@ -44,13 +45,13 @@ class ColabIndexingConfig:
     output_dir: str = "vector_store"
     
     # Embedding model (optimized for Colab GPU)
-    embedding_model: str = "jinaai/jina-embeddings-v2-base-code"
+    embedding_model: str = "BAAI/bge-m3"
     
     # Device settings (auto-detect GPU)
     device: str = "auto"  # Will auto-detect cuda/cpu
     
     # Chunk settings (optimized for technical content)
-    chunk_size: int = 1500
+    chunk_size: int = 3000
     chunk_overlap: int = 300
     
     # Performance settings (GPU-optimized)
@@ -385,13 +386,17 @@ class ColabPRIndexer:
             self.logger.error(f"Error creating vector store: {e}")
             raise
 
-    def save_vector_store(self, vector_store: FAISS, output_dir: str):
+    def save_vector_store(self, vector_store: FAISS, chunks: List[Document], output_dir: str):
         """Save vector store and metadata."""
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
         vector_store.save_local(str(output_path))
         print(f"💾 Vector store saved to {output_path}")
+
+        with open(output_path / "chunks.pkl", "wb") as f:
+          pickle.dump(chunks, f)
+        print(f"📄 Raw chunks saved to {output_path / 'chunks.pkl'}")
         
         metadata = {
             "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -424,7 +429,7 @@ class ColabPRIndexer:
             
             vector_store = self.create_vector_store(chunks)
             
-            self.save_vector_store(vector_store, self.config.output_dir)
+            self.save_vector_store(vector_store,chunks,self.config.output_dir)
             
             print("🎉 === Indexing Process Completed Successfully ===")
             print(f"📊 Total PRs processed: {len(pr_data_list)}")
@@ -476,15 +481,15 @@ def setup_colab_environment():
 def recommend_settings(num_files: int, has_gpu: bool):
     """Recommend optimal settings based on data size and hardware."""
     if num_files <= 50:
-        model = "all-MiniLM-L6-v2"
+        model = "BAAI/bge-m3"
         batch_size = 32 if has_gpu else 8
         time_estimate = "1-2 minutes"
     elif num_files <= 500:
-        model = "jinaai/jina-embeddings-v2-base-code"
+        model = "BAAI/bge-m3"
         batch_size = 64 if has_gpu else 16
         time_estimate = "5-10 minutes" if has_gpu else "20-40 minutes"
     else:
-        model = "jinaai/jina-embeddings-v2-base-code"
+        model = "BAAI/bge-m3"
         batch_size = 128 if has_gpu else 16
         time_estimate = "15-30 minutes" if has_gpu else "1-2 hours"
     
