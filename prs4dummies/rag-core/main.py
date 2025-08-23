@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 # Import our RAG core
-from rag_core import RAGCore, create_rag_core
+from rag_core import RAGCore
 
 # Configure logging
 logging.basicConfig(
@@ -87,13 +87,13 @@ async def startup_event():
         
         # Get vector store path from environment or use default
         vector_store_path = os.getenv("VECTOR_STORE_PATH", "../indexing/vector_store")
-        embedding_model = os.getenv("EMBEDDING_MODEL", "nomic-ai/nomic-embed-text-v1.5")
+        embedding_model = os.getenv("EMBEDDING_MODEL", "jinaai/jina-embeddings-v2-base-code")
         
         logger.info(f"Loading vector store from: {vector_store_path}")
         logger.info(f"Using embedding model: {embedding_model}")
         
         # Initialize RAG core
-        rag_core = create_rag_core(
+        rag_core = RAGCore(
             vector_store_path=vector_store_path,
             embedding_model_name=embedding_model
         )

@@ -1,8 +1,7 @@
 """
-RAG Core Module for PRs4Dummies
+RAG Core Module for PRs4Dummies (OpenAI Version)
 
-This module contains the core logic for the RAG (Retrieval-Augmented Generation) pipeline
-that answers questions about pull requests using the pre-built FAISS index.
+This module contains the core logic for the RAG pipeline using OpenAI's API as the LLM.
 """
 
 import os
@@ -10,70 +9,22 @@ import logging
 from typing import List, Dict, Any
 from pathlib import Path
 
+# --- CHANGED: Imports for OpenAI and environment variables ---
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+# -----------------------------------------------------------
+
 # LangChain imports
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.prompts import PromptTemplate
-from langchain.schema import Document
 from langchain.chains import RetrievalQA
-from langchain.llms.base import LLM
-
-# For local HuggingFace models
-from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
-import torch
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class LocalHuggingFaceLLM(LLM):
-    """Local HuggingFace LLM wrapper for LangChain compatibility."""
-
-    model_name: str = "google/gemma-2b-it" # <-- Change the model name
-    max_length: int = 512
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._pipeline = None
-
-    def _load_model(self):
-        """Load the T5 model and tokenizer."""
-        try:
-            logger.info(f"Loading model: {self.model_name}")
-            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
-
-            self._pipeline = pipeline(
-                "text2text-generation", # <-- Change the pipeline task
-                model=model,
-                tokenizer=tokenizer,
-                max_length=self.max_length,
-                truncation=True,
-            )
-            logger.info("Model loaded successfully")
-        except Exception as e:
-            logger.error(f"Error loading model: {e}")
-            raise
-
-    @property
-    def _llm_type(self) -> str:
-        return "local_huggingface_t5"
-
-    def _call(self, prompt: str, stop: List[str] = None, **kwargs) -> str:
-        """Generate text using the local T5 model."""
-        if self._pipeline is None:
-            self._load_model()
-
-        try:
-            # Generate response. T5 models are much better at just returning the answer.
-            result = self._pipeline(prompt)
-            response = result[0]['generated_text']
-
-            logger.info(f"Response preview: {response[:150]}...")
-            return response if response else "The model returned an empty response."
-        except Exception as e:
-            logger.error(f"Error generating response: {e}")
-            return f"I encountered an error while generating a response: {str(e)}"
+# --- REMOVED: The entire LocalHuggingFaceLLM class and transformers/torch imports ---
 
 
 class RAGCore:
@@ -82,37 +33,37 @@ class RAGCore:
     def __init__(self, vector_store_path: str = None, embedding_model_name: str = None):
         """
         Initialize the RAG core.
-        
-        Args:
-            vector_store_path: Path to the FAISS vector store
-            embedding_model_name: Name of the embedding model to use
         """
         self.vector_store_path = vector_store_path or "vector_store"
-        self.embedding_model_name = embedding_model_name or "nomic-ai/nomic-embed-text-v1.5"
+        self.embedding_model_name = embedding_model_name or "jinaai/jina-embeddings-v2-base-code"
         
-        # Initialize components
         self.embeddings = None
         self.vector_store = None
         self.llm = None
         self.rag_chain = None
         
-        # Load components
         self._load_components()
     
     def _load_components(self):
         """Load all necessary components for the RAG pipeline."""
         try:
-            # Load embedding model
+            # --- CHANGED: Load API key from .env file ---
+            load_dotenv()
+            if "OPENAI_API_KEY" not in os.environ:
+                raise ValueError("OPENAI_API_KEY not found. Please set it in your .env file.")
+            # -----------------------------------------------
+
+            # Load embedding model (this part stays the same)
             logger.info(f"Loading embedding model: {self.embedding_model_name}")
             self.embeddings = HuggingFaceEmbeddings(
                 model_name=self.embedding_model_name,
                 model_kwargs={
-                    'device': 'cpu',  # Use CPU for compatibility
-                    'trust_remote_code': True  # Required for some models like nomic-embed
+                    'device': 'cpu',
+                    'trust_remote_code': True
                 }
             )
             
-            # Load FAISS vector store
+            # Load FAISS vector store (this part stays the same)
             vector_store_dir = Path(self.vector_store_path)
             if not vector_store_dir.exists():
                 raise FileNotFoundError(f"Vector store directory not found: {vector_store_dir}")
@@ -121,21 +72,19 @@ class RAGCore:
             self.vector_store = FAISS.load_local(
                 folder_path=str(vector_store_dir),
                 embeddings=self.embeddings,
-                allow_dangerous_deserialization=True  # Safe since this is our own vector store
+                allow_dangerous_deserialization=True
             )
             logger.info(f"Vector store loaded with {self.vector_store.index.ntotal} documents")
             
-            # Initialize LLM (using local HuggingFace model for demo)
-            logger.info("Initializing local LLM...")
-            self.llm = LocalHuggingFaceLLM(
-                model_name="google/gemma-2b-it",  # Smaller, more efficient GPT-2 variant
-                max_length=512  # Conservative limit
+            # --- CHANGED: Initialize OpenAI LLM instead of local model ---
+            logger.info("Initializing OpenAI LLM (gpt-3.5-turbo)...")
+            self.llm = ChatOpenAI(
+                model_name="gpt-3.5-turbo",
+                temperature=0  # Set to 0 for more deterministic, fact-based answers
             )
+            # -------------------------------------------------------------
             
-            # Create prompt template
             self._create_prompt_template()
-            
-            # Create RAG chain
             self._create_rag_chain()
             
             logger.info("RAG core initialized successfully")
@@ -146,56 +95,34 @@ class RAGCore:
     
     def _create_prompt_template(self):
         """Create the prompt template for the RAG system."""
-#         template = """You are an expert software engineer analyzing pull requests from the Ansible repository.
+        # --- CHANGED: A stricter, more reliable prompt for RAG ---
+        template = """You are an expert software engineer and AI assistant. Your task is to analyze pull requests from the Ansible repository.
+Use the following pieces of retrieved context to answer the question. If you don't know the answer based on the context, just say that you don't know. Do not try to make up an answer.
+Keep the answer concise and focus on the technical details.
 
-# Your task is to answer questions mainly using the context provided from the pull request data - prioritise using this data in all scenarios.
-# If you do not use that pull request data, provide an answer with a disclaimer that says "The following information has been sourced from outside the ansible repository".
+CONTEXT:
+{context}
 
-# IMPORTANT RULES:
-# 1. Base your answer ONLY on the provided context if possible. If not possible, refer to your knowledge with the disclaimer included in the response.
-# 2. If you're not sure about something, say so
-# 3. Be specific and reference the pull request details when possible
-# 4. Focus on the technical aspects and code changes
-# 5. If asked about code, explain the changes clearly
-# 6. Always start your answer with a clear, direct response to the question
+QUESTION: {question}
 
-# CONTEXT (Pull Request Information):
-# {context}
-
-# QUESTION: {question}
-
-# ANSWER:"""
-        template = """You are an expert software engineer analyzing pull requests from the Ansible repository.
-
-        Answer the questions.
-
-        CONTEXT (Pull Request Information):
-        {context}
-
-        QUESTION: {question}
-
-        ANSWER:"""
+ANSWER:"""
+        # ---------------------------------------------------------
         
         self.prompt_template = PromptTemplate.from_template(template)
     
     def _create_rag_chain(self):
-        """Create the RAG chain using LangChain Expression Language."""
+        """Create the RAG chain."""
         try:
-            # Create retriever
             retriever = self.vector_store.as_retriever(
                 search_type="similarity",
-                search_kwargs={"k": 2}  # Retrieve top 2 most relevant chunks to minimize prompt length
+                search_kwargs={"k": 75}  # Can increase K for more powerful models like GPT
             )
             
-            # Create the RAG chain
             self.rag_chain = RetrievalQA.from_chain_type(
                 llm=self.llm,
                 chain_type="stuff",
                 retriever=retriever,
-                chain_type_kwargs={
-                    "prompt": self.prompt_template,
-                    "verbose": True
-                },
+                chain_type_kwargs={"prompt": self.prompt_template},
                 return_source_documents=True
             )
             
@@ -205,64 +132,34 @@ class RAGCore:
             logger.error(f"Error creating RAG chain: {e}")
             raise
     
+    # --- No changes needed for the rest of the file (answer_question, get_vector_store_info, etc.) ---
     def answer_question(self, question: str) -> Dict[str, Any]:
-        """
-        Answer a question using the RAG pipeline
-        
-        Args:
-            question: The user's question about pull requests
-            
-        Returns:
-            Dictionary containing the answer and metadata
-        """
+        """Answer a question using the RAG pipeline."""
         try:
             if not self.rag_chain:
                 raise RuntimeError("RAG chain not initialized")
             
             logger.info(f"Processing question: {question}")
+            result = self.rag_chain.invoke({"query": question})
             
-            # Get answer from RAG chain
-            result = self.rag_chain({"query": question})
-            
-            # Extract answer and source documents
             answer = result.get("result", "No answer generated")
             source_documents = result.get("source_documents", [])
             
-            # Format source information
             sources = []
             for doc in source_documents:
                 if hasattr(doc, 'metadata'):
-                    pr_number = doc.metadata.get("pr_number", "Unknown")
-                    pr_url = doc.metadata.get("source", doc.metadata.get("pr_url", "Unknown"))
-                    title = doc.metadata.get("title", "")
-                    
-                    # Create a meaningful source description
-                    if pr_number != "Unknown" and title:
-                        source_description = f"PR #{pr_number}: {title}"
-                    elif pr_number != "Unknown":
-                        source_description = f"PR #{pr_number}"
-                    else:
-                        source_description = "Unknown PR"
-                    
                     sources.append({
-                        "source": pr_url,
-                        "source_description": source_description,
-                        "pr_number": pr_number,
-                        "title": title,
-                        "chunk_id": doc.metadata.get("chunk_id", "Unknown"),
-                        "relevance_score": doc.metadata.get("score", "N/A")
+                        "source": doc.metadata.get("source", "Unknown"),
+                        "pr_number": doc.metadata.get("pr_number", "Unknown"),
+                        "title": doc.metadata.get("title", "Unknown"),
                     })
             
-            response = {
+            return {
                 "answer": answer,
                 "sources": sources,
                 "question": question,
                 "total_sources": len(sources)
             }
-            
-            logger.info(f"Generated answer with {len(sources)} sources")
-            return response
-            
         except Exception as e:
             logger.error(f"Error answering question: {e}")
             return {
@@ -278,34 +175,22 @@ class RAGCore:
         if not self.vector_store:
             return {"error": "Vector store not loaded"}
         
-        try:
-            return {
-                "total_documents": self.vector_store.index.ntotal,
-                "embedding_dimension": self.vector_store.index.d,
-                "embedding_model": self.embedding_model_name,
-                "vector_store_path": self.vector_store_path
-            }
-        except Exception as e:
-            return {"error": f"Error getting vector store info: {str(e)}"}
-
-# Convenience function for quick testing
-def create_rag_core(vector_store_path: str = None, embedding_model_name: str = None) -> RAGCore:
-    """Create and return a RAG core instance."""
-    return RAGCore(vector_store_path, embedding_model_name)
+        return {
+            "total_documents": self.vector_store.index.ntotal,
+            "embedding_model": self.embedding_model_name,
+        }
 
 if __name__ == "__main__":
-    # Test the RAG core
     try:
-        rag = create_rag_core()
-        print("RAG Core initialized successfully!")
+        rag = RAGCore()
+        print("RAG Core initialized successfully with OpenAI!")
         
-        # Test with a sample question
-        test_question = "What are some common types of pull requests in the Ansible repository?"
+        test_question = "Summarize the PR that limited bootstrap package install retries."
         result = rag.answer_question(test_question)
         
         print(f"\nTest Question: {test_question}")
-        print(f"Answer: {result['answer']}")
-        print(f"Sources: {result['sources']}")
+        print(f"\nAnswer: {result['answer']}")
+        print(f"\nSources: {result['sources']}")
         
     except Exception as e:
         print(f"Error testing RAG core: {e}")

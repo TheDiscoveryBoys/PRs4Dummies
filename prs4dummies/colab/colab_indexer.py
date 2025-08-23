@@ -44,7 +44,7 @@ class ColabIndexingConfig:
     output_dir: str = "vector_store"
     
     # Embedding model (optimized for Colab GPU)
-    embedding_model: str = "nomic-ai/nomic-embed-text-v1.5"
+    embedding_model: str = "jinaai/jina-embeddings-v2-base-code"
     
     # Device settings (auto-detect GPU)
     device: str = "auto"  # Will auto-detect cuda/cpu
@@ -122,7 +122,6 @@ class ColabPRIndexer:
             if self.device == "cuda":
                 # GPU optimizations
                 encode_kwargs['batch_size'] = self.batch_size
-                # Note: torch_dtype is handled by the model itself, not passed to SentenceTransformer
                 print(f"⚡ GPU optimizations: batch size {self.batch_size}")
             else:
                 # CPU optimizations
@@ -140,11 +139,11 @@ class ColabPRIndexer:
                 chunk_size=self.config.chunk_size,
                 chunk_overlap=self.config.chunk_overlap,
                 separators=[
-                    "\\n\\n",      # Paragraph breaks
-                    "\\n###",     # Markdown subheadings
-                    "\\n##",      # Markdown headings
-                    "\\n```",     # Code blocks
-                    "\\n",        # Line breaks
+                    "\n\n",      # Paragraph breaks
+                    "\n###",     # Markdown subheadings
+                    "\n##",      # Markdown headings
+                    "\n```",     # Code blocks
+                    "\n",        # Line breaks
                     ". ",        # Sentences
                     " ",         # Words
                     "",          # Characters
@@ -215,12 +214,15 @@ class ColabPRIndexer:
             
         return True
 
-    def format_pr_to_document(self, pr_data: Dict[str, Any]) -> Document:
-        """Transform PR data into a clean, structured document optimized for RAG."""
+    # --- CHANGED: This function now returns a LIST of documents ---
+    def format_pr_to_document(self, pr_data: Dict[str, Any]) -> List[Document]:
+        """Transform PR data into multiple documents: one for summary/discussion, one for the diff."""
         pr_number = pr_data.get('pr_number', 'unknown')
         title = pr_data.get('title', 'No title')
         
-        # Build structured content with clear sections
+        output_documents = []
+
+        # --- Document 1: Summary and Discussion ---
         content_parts = []
         
         # Header section
@@ -239,11 +241,6 @@ class ColabPRIndexer:
         if labels:
             content_parts.append(f"**Labels:** {', '.join(labels)}")
             
-        # Code statistics
-        additions = pr_data.get('additions', 0)
-        deletions = pr_data.get('deletions', 0)
-        changed_files = pr_data.get('changed_files', 0)
-        content_parts.append(f"**Changes:** +{additions} -{deletions} lines, {changed_files} files")
         content_parts.append("")
         
         # Description section
@@ -260,87 +257,89 @@ class ColabPRIndexer:
         if comments or reviews:
             content_parts.append("## Discussion")
             
-            # Regular comments
             regular_comments = [c for c in comments if c.get('comment_type') != 'review_comment']
             for comment in regular_comments:
-                author = comment.get('author_login', 'Unknown')
-                body = comment.get('body', '').strip()
-                if body:
-                    content_parts.append(f"**{author} commented:**")
-                    content_parts.append(body)
+                comment_author = comment.get('author_login', 'Unknown')
+                comment_body = comment.get('body', '').strip()
+                if comment_body:
+                    content_parts.append(f"**{comment_author} commented:**")
+                    content_parts.append(comment_body)
                     content_parts.append("")
             
-            # Review comments
             for review in reviews:
-                author = review.get('author_login', 'Unknown')
+                review_author = review.get('author_login', 'Unknown')
                 state = review.get('state', 'commented')
-                body = review.get('body', '').strip()
-                if body:
-                    content_parts.append(f"**{author} {state}:**")
-                    content_parts.append(body)
+                review_body = review.get('body', '').strip()
+                if review_body:
+                    content_parts.append(f"**{review_author} {state}:**")
+                    content_parts.append(review_body)
                     content_parts.append("")
             
-            # Inline review comments
             inline_comments = [c for c in comments if c.get('comment_type') == 'review_comment']
             if inline_comments:
                 content_parts.append("### Code Review Comments")
                 for comment in inline_comments:
-                    author = comment.get('author_login', 'Unknown')
-                    body = comment.get('body', '').strip()
+                    inline_author = comment.get('author_login', 'Unknown')
+                    inline_body = comment.get('body', '').strip()
                     file_path = comment.get('file_path', '')
-                    if body:
-                        content_parts.append(f"**{author}** on `{file_path}`:")
-                        content_parts.append(body)
+                    if inline_body:
+                        content_parts.append(f"**{inline_author}** on `{file_path}`:")
+                        content_parts.append(inline_body)
                         content_parts.append("")
         
-        # Code diff section
-        diff = pr_data.get('diff', '').strip()
-        if diff and diff != 'null':
-            content_parts.append("## Code Changes")
-            content_parts.append("```diff")
-            content_parts.append(diff)
-            content_parts.append("```")
-            
-        # Combine all parts
-        content = "\\n".join(content_parts)
+        # Combine all parts for the main document
+        main_content = "\n".join(content_parts)
         
         # Create rich metadata for filtering and ranking
-        metadata = {
+        base_metadata = {
             "pr_number": pr_number,
             "title": title,
             "author_login": author,
             "merged_by_login": merged_by or "",
             "labels": labels,
             "labels_str": ", ".join(labels),
-            "additions": additions,
-            "deletions": deletions,
-            "changed_files": changed_files,
-            "has_diff": bool(diff and diff != 'null'),
+            "additions": pr_data.get('additions', 0),
+            "deletions": pr_data.get('deletions', 0),
+            "changed_files": pr_data.get('changed_files', 0),
             "comment_count": len(comments),
             "review_count": len(reviews),
-            "content_length": len(content),
+            "content_length": len(main_content),
             "source_type": "github_pr",
+            "document_type": "summary_discussion",
             "repository": "ansible/ansible",
-            "pr_url": f"https://github.com/ansible/ansible/pull/{pr_number}",
-            "source": f"https://github.com/ansible/ansible/pull/{pr_number}"
+            "pr_url": f"[https://github.com/ansible/ansible/pull/](https://github.com/ansible/ansible/pull/){pr_number}",
+            "source": f"[https://github.com/ansible/ansible/pull/](https://github.com/ansible/ansible/pull/){pr_number}"
         }
         
-        return Document(page_content=content, metadata=metadata)
+        output_documents.append(Document(page_content=main_content, metadata=base_metadata))
+        
+        # --- Document 2: The Code Diff (if it exists) ---
+        diff = pr_data.get('diff', '').strip()
+        if diff and diff != 'null':
+            diff_content = f"# Code Diff for PR #{pr_number}\n**Author:** {author}\n\n```diff\n{diff}\n```"
+            
+            diff_metadata = base_metadata.copy()
+            diff_metadata["document_type"] = "code_diff"
+            diff_metadata["content_length"] = len(diff_content)
+            
+            output_documents.append(Document(page_content=diff_content, metadata=diff_metadata))
+            
+        return output_documents
 
     def process_documents(self, pr_data_list: List[Dict[str, Any]]) -> List[Document]:
         """Convert PR data to documents and split into chunks."""
         print(f"🔄 Processing {len(pr_data_list)} PRs into documents")
         
-        # Convert to documents
         documents = []
         for pr_data in tqdm(pr_data_list, desc="Creating documents"):
             try:
-                doc = self.format_pr_to_document(pr_data)
-                documents.append(doc)
+                # --- CHANGED: Use extend to handle the list of documents from the updated function ---
+                docs = self.format_pr_to_document(pr_data)
+                documents.extend(docs)
             except Exception as e:
                 self.logger.error(f"Error processing PR {pr_data.get('pr_number', 'unknown')}: {e}")
         
-        print(f"✅ Created {len(documents)} documents")
+        print(f"✅ Created {len(documents)} documents (including separate diffs)")
         
         # Split into chunks
         print("✂️ Splitting documents into chunks...")
@@ -375,17 +374,13 @@ class ColabPRIndexer:
         start_time = time.time()
         
         try:
-            # Create vector store
             vector_store = FAISS.from_documents(
                 documents=chunks,
                 embedding=self.embeddings
             )
-            
             elapsed = time.time() - start_time
             print(f"✅ Vector store creation completed in {elapsed:.2f} seconds")
-            
             return vector_store
-            
         except Exception as e:
             self.logger.error(f"Error creating vector store: {e}")
             raise
@@ -395,11 +390,9 @@ class ColabPRIndexer:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
-        # Save vector store
         vector_store.save_local(str(output_path))
         print(f"💾 Vector store saved to {output_path}")
         
-        # Save metadata
         metadata = {
             "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             "embedding_model": self.config.embedding_model,
@@ -414,7 +407,6 @@ class ColabPRIndexer:
         metadata_path = output_path / "index_metadata.json"
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=2)
-        
         print(f"📄 Metadata saved to {metadata_path}")
 
     def run_indexing(self):
@@ -422,20 +414,16 @@ class ColabPRIndexer:
         print("🎯 === Starting Ansible PR Indexing Process ===")
         
         try:
-            # Load PR data
             print(f"📁 Loading PR data from {self.config.data_dir}")
             pr_data_list = self.load_pr_data(self.config.data_dir)
             
-            # Process documents
             chunks = self.process_documents(pr_data_list)
             
             if not chunks:
                 raise ValueError("No valid document chunks created")
             
-            # Create vector store
             vector_store = self.create_vector_store(chunks)
             
-            # Save results
             self.save_vector_store(vector_store, self.config.output_dir)
             
             print("🎉 === Indexing Process Completed Successfully ===")
@@ -454,7 +442,6 @@ def check_gpu():
     """Check GPU availability."""
     print("🔍 Checking GPU availability...")
     if torch.cuda.is_available():
-        gpu_count = torch.cuda.device_count()
         gpu_name = torch.cuda.get_device_name(0)
         gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1e9
         print(f"✅ GPU detected: {gpu_name}")
@@ -471,57 +458,37 @@ def check_gpu():
 def setup_colab_environment():
     """Setup the Colab environment."""
     print("🔧 Setting up Colab environment...")
-    
-    # Check GPU
     has_gpu = check_gpu()
     
-    # Install dependencies if needed
     try:
         import faiss
-        if has_gpu:
-            print("✅ FAISS-GPU available")
-        else:
-            print("✅ FAISS-CPU available")
+        print("✅ FAISS already installed")
     except ImportError:
         print("📦 Installing FAISS...")
-        if has_gpu:
-            os.system("pip install faiss-gpu")
-        else:
-            os.system("pip install faiss-cpu")
+        os.system("pip install faiss-gpu-cu121" if has_gpu else "pip install faiss-cpu")
     
-    # Check other dependencies
-    dependencies = [
-        "langchain", "langchain-community", "langchain-huggingface", "sentence-transformers", 
-        "transformers", "einops", "tqdm"
-    ]
-    
-    for dep in dependencies:
-        try:
-            __import__(dep.replace("-", "_"))
-            print(f"✅ {dep} available")
-        except ImportError:
-            print(f"📦 Installing {dep}...")
-            os.system(f"pip install {dep}")
+    dependencies = ["langchain", "langchain-community", "langchain-huggingface", "sentence-transformers", "transformers", "einops", "tqdm"]
+    os.system(f"pip install -q {' '.join(dependencies)}")
     
     return has_gpu
 
 
 def recommend_settings(num_files: int, has_gpu: bool):
     """Recommend optimal settings based on data size and hardware."""
-    if num_files <= 10:
-        model = "all-MiniLM-L6-v2"  # Faster for small datasets
+    if num_files <= 50:
+        model = "all-MiniLM-L6-v2"
         batch_size = 32 if has_gpu else 8
         time_estimate = "1-2 minutes"
-    elif num_files <= 50:
-        model = "nomic-ai/nomic-embed-text-v1.5"  # Better quality
+    elif num_files <= 500:
+        model = "jinaai/jina-embeddings-v2-base-code"
         batch_size = 64 if has_gpu else 16
-        time_estimate = "2-5 minutes" if has_gpu else "10-20 minutes"
+        time_estimate = "5-10 minutes" if has_gpu else "20-40 minutes"
     else:
-        model = "nomic-ai/nomic-embed-text-v1.5"  # Best for large datasets
+        model = "jinaai/jina-embeddings-v2-base-code"
         batch_size = 128 if has_gpu else 16
-        time_estimate = "10-30 minutes" if has_gpu else "1-3 hours"
+        time_estimate = "15-30 minutes" if has_gpu else "1-2 hours"
     
-    print(f"📊 Dataset size: {num_files} PRs")
+    print(f"\n📊 Dataset size: {num_files} PRs")
     print(f"🤖 Recommended model: {model}")
     print(f"⚡ Recommended batch size: {batch_size}")
     print(f"⏱️ Estimated time: {time_estimate}")
@@ -532,62 +499,42 @@ def recommend_settings(num_files: int, has_gpu: bool):
 def upload_data():
     """Handle data upload for Colab."""
     if not IN_COLAB:
-        print("ℹ️ Not in Colab - please ensure your data is in the 'scraped_data' directory")
+        print("ℹ️ Not in Colab - ensure your data is in the 'scraped_data' directory")
         return
     
-    print("📤 Upload your scraped PR data:")
-    print("Option 1: Upload individual JSON files")
-    print("Option 2: Upload a ZIP file containing JSON files")
-    
+    print("\n📤 Upload your scraped PR data (JSON files or a single ZIP file):")
     uploaded = files.upload()
     
-    # Create data directory
     data_dir = Path("scraped_data")
     data_dir.mkdir(exist_ok=True)
     
-    # Process uploaded files
     import zipfile
-    for filename, content in uploaded.items():
+    for filename in uploaded.keys():
         filepath = Path(filename)
-        
         if filepath.suffix.lower() == '.zip':
             print(f"📦 Extracting ZIP file: {filename}")
             with zipfile.ZipFile(filename, 'r') as zip_ref:
                 zip_ref.extractall(data_dir)
-        elif filepath.suffix.lower() == '.json':
-            print(f"📄 Processing JSON file: {filename}")
-            # Move to data directory
-            filepath.rename(data_dir / filename)
+            filepath.unlink() # Clean up the zip
         else:
-            print(f"⚠️ Unsupported file type: {filename}")
+            Path(filename).rename(data_dir / filename)
 
 
 def download_results():
     """Create downloadable archive for Colab."""
     if not IN_COLAB:
-        print("ℹ️ Not in Colab - vector store saved locally")
+        print("ℹ️ Vector store saved locally")
         return
-    
     import shutil
     
-    print("📦 Creating downloadable archive...")
-    
-    # Create ZIP archive
+    print("\n📦 Creating downloadable archive...")
     archive_name = "vector_store"
     shutil.make_archive(archive_name, 'zip', 'vector_store')
     
-    # Show what's included
-    vector_store_files = list(Path("vector_store").glob("*"))
-    print(f"\\n📁 Archive contains:")
-    for file in vector_store_files:
-        size_mb = file.stat().st_size / (1024 * 1024)
-        print(f"   {file.name} ({size_mb:.1f} MB)")
-
     archive_size = Path(f"{archive_name}.zip").stat().st_size / (1024 * 1024)
-    print(f"\\n📦 Total archive size: {archive_size:.1f} MB")
+    print(f"📦 Total archive size: {archive_size:.1f} MB")
 
-    # Download the archive
-    print("\\n⬇️ Downloading vector store...")
+    print("\n⬇️ Downloading vector store...")
     files.download(f"{archive_name}.zip")
     print("✅ Download complete!")
 
@@ -597,67 +544,41 @@ def main():
     print("🚀 PRs4Dummies - Colab Indexer")
     print("=" * 40)
     
-    # Setup environment
     has_gpu = setup_colab_environment()
     
-    # Handle data upload
     if IN_COLAB:
         upload_data()
     
-    # Check data directory
     data_dir = Path("scraped_data")
-    if not data_dir.exists() or not list(data_dir.glob("*.json")):
+    if not data_dir.exists() or not any(data_dir.iterdir()):
         print("❌ No JSON files found. Please upload your scraped PR data.")
         return
     
     json_files = list(data_dir.glob("*.json"))
     model, batch_size = recommend_settings(len(json_files), has_gpu)
     
-    # Create configuration
-    config = ColabIndexingConfig(
-        embedding_model=model,
-        batch_size=batch_size,
-        device="cuda" if has_gpu else "cpu"
-    )
+    config = ColabIndexingConfig(embedding_model=model, batch_size=batch_size, device="cuda" if has_gpu else "cpu")
     
-    # Run indexing
-    print("\\n🎬 Starting indexing process...")
+    print("\n🎬 Starting indexing process...")
     print("=" * 50)
-    
     total_start_time = time.time()
     
     try:
-        # Create indexer and run
         indexer = ColabPRIndexer(config)
         vector_store = indexer.run_indexing()
         
-        # Calculate total time
         total_time = time.time() - total_start_time
-        
         print("=" * 50)
         print(f"🎉 INDEXING COMPLETED SUCCESSFULLY!")
         print(f"⏱️ Total time: {total_time:.1f} seconds ({total_time/60:.1f} minutes)")
         print(f"📊 Vector store contains {vector_store.index.ntotal} chunks")
-        print(f"🔢 Vector dimension: {vector_store.index.d}")
         
-        # Performance stats
-        chunks_per_second = vector_store.index.ntotal / total_time
-        print(f"⚡ Processing speed: {chunks_per_second:.1f} chunks/second")
-        
-        # Download results if in Colab
         if IN_COLAB:
             download_results()
-        
-        print("\\n🎯 Next steps:")
-        print("1. Extract the vector store in your local project")
-        print("2. Update your RAG system to use the new embeddings")
-        print("3. Test with specific questions about your PRs")
-        
+            
     except Exception as e:
         print(f"❌ Indexing failed: {e}")
-        print("💡 Try reducing batch size or using a smaller model")
         raise
-
 
 if __name__ == "__main__":
     main()
