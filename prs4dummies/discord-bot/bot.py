@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000')
 BOT_PREFIX = os.getenv('BOT_PREFIX', '!')
-BOT_NAME = os.getenv('BOT_NAME', 'PR-Analyst')
+BOT_NAME = os.getenv('BOT_NAME', 'GitWit')
 
 # Validate required environment variables
 if not DISCORD_TOKEN:
@@ -78,7 +78,7 @@ class PRs4DummiesBot:
             
             # Create a formatted embed
             embed = discord.Embed(
-                title="🤖 PR Analysis Result",
+                title="🤖 GitWit's Answer",
                 description=data.get("answer", "No answer received"),
                 color=0x00ff88,  # Green color
                 timestamp=discord.utils.utcnow()
@@ -86,29 +86,10 @@ class PRs4DummiesBot:
             
             # Add question field
             embed.add_field(
-                name="❓ Question",
+                name="❔Your Question",
                 value=data.get("question", "Unknown"),
                 inline=False
             )
-            
-            # Add processing time
-            if "processing_time_ms" in data:
-                embed.add_field(
-                    name="⏱️ Processing Time",
-                    value=f"{data['processing_time_ms']}ms",
-                    inline=True
-                )
-            
-            # Add sources information
-            if "sources" in data and data["sources"]:
-                sources_text = f"📚 {len(data['sources'])} sources used"
-                if "total_sources" in data:
-                    sources_text += f" (from {data['total_sources']} available)"
-                embed.add_field(
-                    name="📖 Sources",
-                    value=sources_text,
-                    inline=True
-                )
             
             # Add footer
             embed.set_footer(text="Powered by PRs4Dummies RAG API")
