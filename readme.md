@@ -129,8 +129,6 @@ https://drive.google.com/file/d/1avXcmIlsOnveXfw0QzATwosMLhUNaqS2/view?usp=shari
 
 # Indexing With Google Colab
 
-This directory contains everything needed to run **high-performance PR indexing on Google Colab** with GPU acceleration.
-
 This step involving colab can be skipped as it may take quite long depending on the number of PRs that need to be indexed. You can find prepared index files here (HIGHLY recommended):
 
 ```bash
