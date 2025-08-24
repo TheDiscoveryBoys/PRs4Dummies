@@ -5,7 +5,7 @@
 
 ## PRs4Dummies Presents:
 
-<img src="https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/main/GitWitLogo.png?raw=true" alt="GitWit Logo" width="400"/>
+<img src="https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/main/GitWitLogo.png?raw=true" alt="GitWit Logo" width="200"/>
 ---
 
 ## NB NB NB PLEASE READ
