@@ -41,6 +41,7 @@ class EnhancedAnsibleGitHubScraper:
     """Enhanced scraper with multiple efficient GitHub API methods."""
     
     def __init__(self, github_token: Optional[str] = None, 
+                 repo_full_name: str = "ansible/ansible",
                  output_dir: str = "scraped_data",
                  repo_dir: str = "ansible_repo_enhanced",
                  max_workers: int = 5,
@@ -53,6 +54,7 @@ class EnhancedAnsibleGitHubScraper:
         
         Args:
             github_token: GitHub personal access token for API access
+            repo_full_name: Full repository name in 'owner/name' format
             output_dir: Directory to save scraped PR data
             repo_dir: Directory to clone the repository
             max_workers: Maximum number of parallel workers
@@ -103,9 +105,12 @@ class EnhancedAnsibleGitHubScraper:
             self.github = Github(timeout=timeout, per_page=100)  # Rate limited without token
             self.logger.warning(f"No GitHub token found. API rate limits will apply ({self.requests_per_hour} requests/hour)")
         
-        # Repository details
-        self.repo_owner = "ansible"
-        self.repo_name = "ansible"
+        try:
+            self.repo_owner, self.repo_name = repo_full_name.split('/')
+        except ValueError:
+            self.logger.error(f"❌ Invalid repository format: '{repo_full_name}'. Please use 'owner/name'.")
+            sys.exit(1)
+            
         self.repo_url = f"https://github.com/{self.repo_owner}/{self.repo_name}.git"
         
         # Create output directory
@@ -117,7 +122,7 @@ class EnhancedAnsibleGitHubScraper:
         # Graceful shutdown flag
         self.shutdown_requested = False
         
-        self.logger.info(f"Initialized Enhanced Scraper using '{api_method}' API method")
+        self.logger.info(f"Initialized Scraper for '{self.repo_owner}/{self.repo_name}' using '{api_method}' API method")
         
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals gracefully."""
@@ -848,7 +853,7 @@ class EnhancedAnsibleGitHubScraper:
         scraped_prs = []
         
         try:
-            self.logger.info(f"🚀 Starting enhanced scraping of {num_prs} PRs...")
+            self.logger.info(f"🚀 Starting enhanced scraping of {num_prs} PRs from '{self.repo_owner}/{self.repo_name}'...")
             self.logger.info(f"⚙️  API Method: {self.api_method}")
             self.logger.info(f"⚙️  Settings: max_workers={self.max_workers}, batch_size={self.batch_size}, timeout={self.timeout}s")
             
@@ -1000,38 +1005,39 @@ class EnhancedAnsibleGitHubScraper:
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Enhanced Ansible GitHub repository PR scraper with multiple API methods")
+    parser = argparse.ArgumentParser(description="Enhanced GitHub repository PR scraper with multiple API methods")
     parser.add_argument("--token", 
-                       help="GitHub personal access token (overrides .env file)")
+                        help="GitHub personal access token (overrides .env file)")
+    parser.add_argument("--repo", default="ansible/ansible",
+                        help="The GitHub repository to scrape, in 'owner/name' format (default: ansible/ansible)")
     parser.add_argument("--num-prs", type=int, default=50, 
-                       help="Number of PRs to scrape (default: 50)")
+                        help="Number of PRs to scrape (default: 50)")
     parser.add_argument("--output-dir", default="scraped_data",
-                       help="Output directory for scraped data (default: scraped_data)")
+                        help="Output directory for scraped data (default: scraped_data)")
     parser.add_argument("--repo-dir", default="ansible_repo_enhanced",
-                       help="Directory to clone repository (default: ansible_repo_enhanced)")
+                        help="Directory to clone repository (default: ansible_repo_enhanced)")
     parser.add_argument("--merged-only", action="store_true", default=True,
-                       help="Only scrape merged PRs (default: True)")
+                        help="Only scrape merged PRs (default: True)")
     parser.add_argument("--include-unmerged", action="store_true",
-                       help="Include unmerged/closed PRs")
+                        help="Include unmerged/closed PRs")
     parser.add_argument("--max-workers", type=int, default=3,
-                       help="Maximum number of parallel workers (default: 3)")
+                        help="Maximum number of parallel workers (default: 3)")
     parser.add_argument("--batch-size", type=int, default=10,
-                       help="Number of PRs to process in each batch (default: 10)")
+                        help="Number of PRs to process in each batch (default: 10)")
     parser.add_argument("--timeout", type=int, default=15,
-                       help="Timeout for API requests in seconds (default: 15)")
+                        help="Timeout for API requests in seconds (default: 15)")
     parser.add_argument("--max-retries", type=int, default=3,
-                       help="Maximum number of retries for failed requests (default: 3)")
+                        help="Maximum number of retries for failed requests (default: 3)")
     parser.add_argument("--api-method", choices=["direct", "rest", "graphql", "search"], default="direct",
-                       help="API method to use (default: direct)")
+                        help="API method to use (default: direct)")
     
     args = parser.parse_args()
     
     # Determine merged_only based on arguments
     merged_only = args.merged_only and not args.include_unmerged
-    
-    # Initialize enhanced scraper
     scraper = EnhancedAnsibleGitHubScraper(
         github_token=args.token,
+        repo_full_name=args.repo,
         output_dir=args.output_dir,
         repo_dir=args.repo_dir,
         max_workers=args.max_workers,
@@ -1048,7 +1054,7 @@ def main():
             merged_only=merged_only
         )
         
-        print(f"\n🎉 Scraping completed! {len(scraped_prs)} PRs processed.")
+        print(f"\n🎉 Scraping completed! {len(scraped_prs)} PRs processed from '{args.repo}'.")
         print(f"📁 Data saved to: {args.output_dir}")
         print(f"⚡ API method used: {args.api_method}")
         
