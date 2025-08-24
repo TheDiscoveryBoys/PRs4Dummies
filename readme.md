@@ -162,25 +162,6 @@ scraped_data/
 └── scrape_summary.json     # Summary of all scraped PRs
 ```
 
-### PR Data Structure
-Each PR JSON file contains:
-```json
-{
-  "pr_number": 12345,
-  "title": "Add new feature for better performance",
-  "body": "This PR implements...",
-  "author_login": "username",
-  "merged_by_login": "reviewer",
-  "labels": ["enhancement", "performance"],
-  "additions": 150,
-  "deletions": 50,
-  "changed_files": 8,
-  "comments": [...],
-  "reviews": [...],
-  "diff": "diff --git a/file.py b/file.py..."
-}
-```
-
 ## ⚡ Performance Comparison
 
 | API Method | Speed | Rate Limit | Best For |
@@ -230,26 +211,6 @@ Each PR JSON file contains:
 - **Medium Scale** (100-500 PRs): Increase `--max-workers` to 5
 - **Large Scale** (500+ PRs): Use `--api-method graphql` with `--batch-size 25`
 - **Very Large Scale** (1000+ PRs): Consider running multiple instances with different date ranges
-
-## 📝 Logging
-
-The enhanced scraper provides comprehensive logging:
-- **File**: `scraper_enhanced.log`
-- **Console**: Real-time progress updates
-- **Levels**: INFO, WARNING, ERROR with timestamps
-- **Progress**: Percentage complete, rate, and ETA
-
-## 📄 License
-
-This enhanced scraper maintains the same license as the original scraper.
-
-## 🆘 Support
-
-For issues or questions:
-1. Check the troubleshooting section above
-2. Review the logs in `scraper_enhanced.log`
-3. Verify your GitHub token permissions
-4. Test with a small number of PRs first
 
 ---
 
