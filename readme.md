@@ -4,8 +4,10 @@
 
 ### GitWit wants to say hi! Watch the video in this folder 📽️.
 
-[https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/871bae4ddcdb5df3d648e2ae96044b505391bd80/GitwitIntro.mp4]
----
+<p align="center">
+<video src="https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/main/GitwitIntro.mp4?raw=true" controls="controls" style="max-width: 720px;">
+</video>
+</p>
 
 ## NB NB NB PLEASE READ
 `Keep in mind that this is a process. There is a fair bit of set up involved due to the multiple steps involved and the usage of google colab due to hardware constraints.` **You will not need to run the scraper nor the indexer. The resultant files of the indexer can be downloaded by following the instructions within /indexing/vector_store/vector_store_files.txt**. 
