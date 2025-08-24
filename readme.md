@@ -3,11 +3,9 @@
 
 # HOW DO I RUN THIS THING?
 
-## 🎥 Hello!!!
+## PRs4Dummies Presents:
 
-### GitWit wants to say hi! Watch the video in this folder 📽️.
-
-[https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/871bae4ddcdb5df3d648e2ae96044b505391bd80/GitwitIntro.mp4]
+![alt text](https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/main/GitWitLogo.png?raw=true)
 ---
 
 ## NB NB NB PLEASE READ
