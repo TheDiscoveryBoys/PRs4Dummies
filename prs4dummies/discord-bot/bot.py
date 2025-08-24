@@ -6,9 +6,8 @@ to provide AI-powered answers about pull requests.
 """
 
 import os
-import asyncio
 import logging
-import time
+import random
 from typing import Optional
 import discord
 from discord.ext import commands
@@ -42,7 +41,7 @@ intents.message_content = True
 bot = commands.Bot(
     command_prefix=BOT_PREFIX,
     intents=intents,
-    help_command=None  # We'll create a custom help command
+    help_command=None
 )
 
 class PRs4DummiesBot:
@@ -51,11 +50,18 @@ class PRs4DummiesBot:
     def __init__(self):
         self.api_base_url = API_BASE_URL
         self.bot_name = BOT_NAME
-        self.thinking_messages = {}  # Track thinking messages per channel
+        self.thinking_messages = [
+            "⚙️ **Analyzing the diffs...** Just a moment while I review the changes.",
+            "🧠 **Consulting the AI core...** Synthesizing an answer from the repo's knowledge base.",
+            "💻 **Digging through the commits...** Searching for the insights you need.",
+            "🤖 **GitWit is on the case!** Examining the pull request details now.",
+            "🔍 **Scanning the codebase...** Looking for clues to answer your question."
+        ]
         
     async def send_thinking_message(self, channel):
-        """Send a 'thinking' message to indicate processing."""
-        thinking_msg = await channel.send("🤔 **Thinking...** Analyzing your question about pull requests...")
+        """Send a random 'thinking' message to indicate processing."""
+        message_text = random.choice(self.thinking_messages)
+        thinking_msg = await channel.send(message_text)
         return thinking_msg
     
     async def delete_thinking_message(self, thinking_msg):
@@ -213,18 +219,18 @@ async def on_message(message):
         # Check if there's actually a question
         if not question:
             help_embed = discord.Embed(
-                title="🤖 PR-Analyst Bot",
+                title="🤖 GitWit Bot",
                 description="I'm here to help you understand pull requests! Mention me with a question like:",
                 color=0x0099ff
             )
             help_embed.add_field(
                 name="Example Questions",
-                value="• @PR-Analyst what is this PR about?\n• @PR-Analyst explain the changes in this PR\n• @PR-Analyst what are the main features added?",
+                value="• @GitWit what is PR #5 about?\n• @GitWit explain the changes in PR #23\n• @GitWit what are the main features added in PR #11?",
                 inline=False
             )
             help_embed.add_field(
                 name="Commands",
-                value=f"• `{BOT_PREFIX}help` - Show this help\n• `{BOT_PREFIX}status` - Check API status\n• `{BOT_PREFIX}info` - Get system information",
+                value=f"• `{BOT_PREFIX}help` - Show this help",
                 inline=False
             )
             await message.channel.send(embed=help_embed)
@@ -240,7 +246,7 @@ async def on_message(message):
 async def help_command(ctx):
     """Show help information."""
     help_embed = discord.Embed(
-        title="🤖 PR-Analyst Bot Help",
+        title="🤖 GitWit Bot Help",
         description="I'm an AI-powered bot that helps you understand pull requests using the PRs4Dummies system.",
         color=0x0099ff
     )
@@ -253,13 +259,13 @@ async def help_command(ctx):
     
     help_embed.add_field(
         name="Example Questions",
-        value="• @PR-Analyst what is this PR about?\n• @PR-Analyst explain the changes in this PR\n• @PR-Analyst what are the main features added?\n• @PR-Analyst what issues does this PR fix?",
+        value="• @GitWit what is PR #5 about?\n• @GitWit explain the changes in PR #23\n• @GitWit what are the main features added in PR #11?",
         inline=False
     )
     
     help_embed.add_field(
         name="Commands",
-        value=f"• `{BOT_PREFIX}help` - Show this help\n• `{BOT_PREFIX}status` - Check API status\n• `{BOT_PREFIX}info` - Get system information",
+        value=f"• `{BOT_PREFIX}help` - Show this help",
         inline=False
     )
     
@@ -271,110 +277,6 @@ async def help_command(ctx):
     
     await ctx.send(embed=help_embed)
 
-@bot.command(name="status")
-async def status_command(ctx):
-    """Check the status of the PR analysis API."""
-    try:
-        url = f"{pr_bot.api_base_url}/health"
-        response = requests.get(url, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            status_embed = discord.Embed(
-                title="✅ API Status",
-                description="The PR analysis API is running and healthy!",
-                color=0x00ff88,
-                timestamp=discord.utils.utcnow()
-            )
-            
-            # Add status details
-            if "vector_store_info" in data:
-                vs_info = data["vector_store_info"]
-                status_embed.add_field(
-                    name="📊 Vector Store",
-                    value=f"Status: {vs_info.get('status', 'Unknown')}\nDocuments: {vs_info.get('document_count', 'Unknown')}",
-                    inline=True
-                )
-            
-            if "uptime_seconds" in data:
-                uptime = int(data["uptime_seconds"])
-                hours = uptime // 3600
-                minutes = (uptime % 3600) // 60
-                status_embed.add_field(
-                    name="⏰ Uptime",
-                    value=f"{hours}h {minutes}m",
-                    inline=True
-                )
-            
-            await ctx.send(embed=status_embed)
-        else:
-            error_embed = discord.Embed(
-                title="❌ API Status",
-                description="The PR analysis API is not responding properly.",
-                color=0xff8800,
-                timestamp=discord.utils.utcnow()
-            )
-            await ctx.send(embed=error_embed)
-            
-    except Exception as e:
-        error_embed = discord.Embed(
-            title="❌ API Status",
-            description="Could not connect to the PR analysis API.",
-            color=0xff4444,
-            timestamp=discord.utils.utcnow()
-        )
-        error_embed.add_field(
-            name="Error",
-            value=str(e),
-            inline=False
-        )
-        await ctx.send(embed=error_embed)
-
-@bot.command(name="info")
-async def info_command(ctx):
-    """Get information about the PR analysis system."""
-    try:
-        url = f"{pr_bot.api_base_url}/info"
-        response = requests.get(url, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            info_embed = discord.Embed(
-                title="ℹ️ System Information",
-                description="Information about the PR analysis system",
-                color=0x0099ff,
-                timestamp=discord.utils.utcnow()
-            )
-            
-            # Add system details
-            if "vector_store" in data:
-                vs_info = data["vector_store"]
-                info_embed.add_field(
-                    name="📊 Vector Store",
-                    value=f"Status: {vs_info.get('status', 'Unknown')}\nDocuments: {vs_info.get('document_count', 'Unknown')}\nModel: {vs_info.get('embedding_model', 'Unknown')}",
-                    inline=False
-                )
-            
-            if "embedding_model" in data:
-                info_embed.add_field(
-                    name="🧠 AI Models",
-                    value=f"Embedding: {data['embedding_model']}\nLLM: {data.get('llm_type', 'Unknown')}",
-                    inline=True
-                )
-            
-            if "api_version" in data:
-                info_embed.add_field(
-                    name="🔧 API",
-                    value=f"Version: {data['api_version']}",
-                    inline=True
-                )
-            
-            await ctx.send(embed=info_embed)
-        else:
-            await ctx.send("❌ Could not retrieve system information.")
-            
-    except Exception as e:
-        await ctx.send(f"❌ Error getting system information: {str(e)}")
 
 @bot.event
 async def on_command_error(ctx, error):
