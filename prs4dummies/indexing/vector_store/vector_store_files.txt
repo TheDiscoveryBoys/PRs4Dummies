@@ -1,3 +1,3 @@
-Please download vector store files from: 
+Please download vector store files from: https://drive.google.com/drive/folders/1p50rDYsWNdiWqZ1sVtCdv_2KMmpvjz1T?usp=sharing
 
 Please keep these files in indexing\vector_store
