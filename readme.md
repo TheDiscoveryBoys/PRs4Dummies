@@ -101,13 +101,10 @@ scraped_data/
 
 1. **Rate Limit Exceeded**
    - Use a GitHub personal access token
-   - Reduce `--max-workers` and `--batch-size`
-   - The scraper automatically handles rate limiting
 
 2. **Timeout Errors**
    - Increase `--timeout` value
    - Check your internet connection
-   - Reduce `--batch-size` for slower connections
 
 3. **Authentication Errors**
    - Verify your GitHub token has correct permissions
