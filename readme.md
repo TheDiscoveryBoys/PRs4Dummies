@@ -100,6 +100,7 @@ python scraper_enhanced.py --num-prs 100 --output-dir my_data
 
 # Use GraphQL API for maximum efficiency
 python scraper_enhanced.py --num-prs 200 --api-method graphql
+
 ```
 
 ### Advanced Usage
@@ -118,6 +119,9 @@ python scraper_enhanced.py --num-prs 500 \
 python scraper_enhanced.py --num-prs 300 \
     --api-method rest \
     --output-dir rest_api_data
+
+# Here is a sample format of choosing a specific repo you want to scrape PRs from. Remember to include organisation/username before the repo name!!
+python3 scraper_enhanced.py --repo=ShashinGoundenBBD/FUpBoard
 ```
 
 ## 📊 Command Line Options
