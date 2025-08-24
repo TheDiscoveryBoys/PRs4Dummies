@@ -339,7 +339,6 @@ config = ColabIndexingConfig(
 - [Google Colab](https://colab.research.google.com)
 - [FAISS Documentation](https://faiss.ai/cpp_api/)
 - [Sentence Transformers](https://www.sbert.net/)
-- [Nomic Embed Models](https://huggingface.co/nomic-ai)
 
 ---
 
