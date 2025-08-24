@@ -1,8 +1,14 @@
+# GitWit
+## By Shashin Gounden, Kyle Wilkins, and Gregory Maselle
+
 # HOW DO I RUN THIS THING?
 
 ## 🎥 Hello!!!
 
 ### GitWit wants to say hi! Watch the video in this folder 📽️.
+
+[https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/871bae4ddcdb5df3d648e2ae96044b505391bd80/GitwitIntro.mp4]
+---
 
 ## NB NB NB PLEASE READ
 `Keep in mind that this is a process. There is a fair bit of set up involved due to the multiple steps involved and the usage of google colab due to hardware constraints.` **You will not need to run the scraper nor the indexer. The resultant files of the indexer can be downloaded by following the instructions within /indexing/vector_store/vector_store_files.txt**. 
@@ -378,6 +384,18 @@ config = ColabIndexingConfig(
 
 # Running the API and the Discord Bot
 
+## Authentication Set Up
+
+You will need to provide an OpenAI API key within your .env folder. There is a financial cost to this but the model we use is very simple. Up until now our testing has costed approximately $0.10 in *total*.
+In your .env folder, add the following for OpenAI and Discord integration:
+
+```bash
+OPENAI_API_KEY="sk-your-key-..."
+DISCORD_TOKEN="your-discord-token"
+```
+
+Please message Gregory Maselle, Kyle Wilkins, or Shashin Gounden for the discord token if you wish to run the bot on your side.
+
 **1.** Navigate to the /rag-core folder in the repo.
 **2.** In the terminal run 
 ```bash
@@ -397,5 +415,7 @@ Example:
 ```bash
 @GitWit Who commented on PR #85673?
 ```
+
+Please consult the demo video for more examples of the bot working :).
 
 And GitWit will use it's wit to check git and provide you with a response that's legit. Mostly legit. 
