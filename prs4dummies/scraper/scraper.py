@@ -19,6 +19,7 @@ import os
 import json
 import logging
 import argparse
+import time
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -141,11 +142,12 @@ class AnsibleGitHubScraper:
     
     def fetch_pull_requests(self, num_prs: int = 50, merged_only: bool = True) -> List[PullRequest]:
         """
-        Fetch the most recent pull requests.
+        Fetch the most recent pull requests with batching for large requests.
         
         Args:
-            num_prs: Number of PRs to fetch
+            num_prs: Number of PRs to fetch (will be batched if > 50)
             merged_only: If True, only fetch successfully merged PRs using GitHub Search API
+                        Note: Search API has a hard limit of 1000 results
             
         Returns:
             List of PullRequest objects
@@ -154,6 +156,11 @@ class AnsibleGitHubScraper:
             repo = self.get_repository()
             
             if merged_only:
+                # GitHub Search API has a hard limit of 1000 results
+                if num_prs > 1000:
+                    self.logger.warning(f"Requested {num_prs} PRs, but GitHub Search API has a hard limit of 1000. Limiting to 1000.")
+                    num_prs = 1000
+                
                 self.logger.info(f"Fetching {num_prs} merged pull requests using GitHub Search API...")
                 
                 # Use GitHub Search API to filter for merged PRs directly
@@ -180,7 +187,42 @@ class AnsibleGitHubScraper:
                 
             else:
                 self.logger.info(f"Fetching {num_prs} pull requests (all states)...")
-                prs = list(repo.get_pulls(state="all", sort="updated", direction="desc")[:num_prs])
+                
+                # Implement batching for large requests (> 50 PRs)
+                if num_prs > 50:
+                    self.logger.info(f"Large request detected ({num_prs} PRs), implementing batching in chunks of 50...")
+                    prs = []
+                    
+                    # Calculate number of batches needed
+                    num_batches = (num_prs + 49) // 50  # Ceiling division
+                    self.logger.info(f"Will fetch in {num_batches} batches of 50 PRs each")
+                    
+                    for batch_num in range(num_batches):
+                        batch_start = batch_num * 50
+                        batch_end = min(batch_start + 50, num_prs)
+                        batch_size = batch_end - batch_start
+                        
+                        self.logger.info(f"Fetching batch {batch_num + 1}/{num_batches}: PRs {batch_start + 1}-{batch_end}")
+                        
+                        # Get PRs for this batch
+                        batch_prs = list(repo.get_pulls(
+                            state="all", 
+                            sort="updated", 
+                            direction="desc"
+                        )[batch_start:batch_end])
+                        
+                        prs.extend(batch_prs)
+                        self.logger.info(f"Batch {batch_num + 1} complete: fetched {len(batch_prs)} PRs")
+                        
+                        # Add a small delay between batches to be respectful to GitHub API
+                        if batch_num < num_batches - 1:  # Don't delay after the last batch
+                            time.sleep(1)
+                    
+                    self.logger.info(f"Batching complete: successfully fetched {len(prs)} pull requests in {num_batches} batches")
+                else:
+                    # For requests <= 50, use the original method
+                    prs = list(repo.get_pulls(state="all", sort="updated", direction="desc")[:num_prs])
+                
                 self.logger.info(f"Successfully fetched {len(prs)} pull requests")
             
             return prs
@@ -484,7 +526,7 @@ def main():
     parser.add_argument("--token", 
                        help="GitHub personal access token (overrides .env file)")
     parser.add_argument("--num-prs", type=int, default=50, 
-                       help="Number of PRs to scrape (default: 50)")
+                       help="Number of PRs to scrape (default: 50, max 1000 for merged-only)")
     parser.add_argument("--output-dir", default="scraped_data",
                        help="Output directory for scraped data (default: scraped_data)")
     parser.add_argument("--repo-dir", default="ansible_repo",
@@ -494,7 +536,9 @@ def main():
     parser.add_argument("--force-refresh", action="store_true",
                        help="Force refresh of local repository")
     parser.add_argument("--include-unmerged", action="store_true",
-                       help="Include unmerged/closed PRs (default: only merged PRs)")
+                       help="Include unmerged/closed PRs (enables batching for >50 PRs)")
+    parser.add_argument("--all-prs", action="store_true",
+                       help="Fetch all PRs (merged and unmerged) with batching support for >50 PRs)")
     
     args = parser.parse_args()
     
@@ -506,12 +550,26 @@ def main():
     )
     
     # Run scraping
+    # If --all-prs is specified, override merged_only to False to enable batching
+    if args.all_prs:
+        merged_only = False
+        print(f"🔧 Using --all-prs option: Will fetch all PRs (merged and unmerged) with batching support")
+    else:
+        merged_only = not args.include_unmerged
+    
     scraped_prs = scraper.scrape_pull_requests(
         num_prs=args.num_prs,
         clone_repo=not args.no_clone,
         force_refresh=args.force_refresh,
-        merged_only=not args.include_unmerged
+        merged_only=merged_only
     )
+    
+    # Add warning about Search API limits
+    if not args.include_unmerged and args.num_prs > 1000:
+        print(f"\n⚠️  Note: You requested {args.num_prs} PRs, but the GitHub Search API")
+        print("   has a hard limit of 1000 results when fetching only merged PRs.")
+        print("   Consider using --include-unmerged to fetch all PRs (which supports batching)")
+        print("   or limit your request to 1000 or fewer PRs.")
     
     print(f"\nScraping completed! {len(scraped_prs)} PRs processed.")
     print(f"Data saved to: {args.output_dir}")

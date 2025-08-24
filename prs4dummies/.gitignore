@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+scraper/scraped_data_converted/
+
 # C extensions
 *.so
 

@@ -88,13 +88,186 @@ class ColabPRIndexer:
         self._init_components()
         
     def _setup_logging(self):
-        """Setup logging for Colab."""
+        """Setup logging for Colab with file output."""
+        # Create logs directory if it doesn't exist
+        log_dir = Path("logs")
+        log_dir.mkdir(exist_ok=True)
+        
+        # Create a unique log file name with timestamp
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        log_file = log_dir / f"colab_indexer_{timestamp}.log"
+        
+        # Configure logging to write to file
         logging.basicConfig(
             level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler(log_file, mode='w', encoding='utf-8'),
+                logging.StreamHandler()  # Keep console output for important messages
+            ]
         )
         self.logger = logging.getLogger(__name__)
         
+        # Log the log file location
+        print(f"📝 Logging to file: {log_file}")
+        self.logger.info(f"Logging started - output file: {log_file}")
+        
+        # Store log file path for later use
+        self.log_file = log_file
+        
+    def _log_file_details(self, file_metadata: Dict[str, Any], file_content: str):
+        """Log detailed file information to the text file."""
+        try:
+            # Create a detailed log entry
+            log_entry = f"""
+{'='*80}
+FILE DOCUMENT ADDED
+{'='*80}
+Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}
+PR Number: {file_metadata.get('pr_number', 'Unknown')}
+File Path: {file_metadata.get('file_path', 'Unknown')}
+File Status: {file_metadata.get('file_status', 'Unknown')}
+Additions: {file_metadata.get('file_additions', 0)}
+Deletions: {file_metadata.get('file_deletions', 0)}
+Content Length: {file_metadata.get('content_length', 0)} characters
+Document Type: {file_metadata.get('document_type', 'Unknown')}
+
+METADATA:
+{json.dumps(file_metadata, indent=2, default=str)}
+
+CONTENT:
+{file_content}
+{'='*80}
+
+"""
+            # Write to the log file
+            with open(self.log_file, 'a', encoding='utf-8') as f:
+                f.write(log_entry)
+                
+            # Also log a summary to the console
+            self.logger.info(f"Added file document for {file_metadata.get('file_path', 'Unknown')} (PR #{file_metadata.get('pr_number', 'Unknown')})")
+            
+        except Exception as e:
+            # Fallback to regular logging if file writing fails
+            self.logger.error(f"Failed to write detailed file log: {e}")
+            self.logger.info(f"Added file document for {file_metadata}")
+    
+    def _log_pr_summary(self, pr_metadata: Dict[str, Any], pr_content: str):
+        """Log detailed PR summary information to the text file."""
+        try:
+            # Create a detailed log entry for PR summary
+            log_entry = f"""
+{'='*80}
+PR SUMMARY DOCUMENT ADDED
+{'='*80}
+Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}
+PR Number: {pr_metadata.get('pr_number', 'Unknown')}
+Title: {pr_metadata.get('title', 'No title')}
+Author: {pr_metadata.get('author_login', 'Unknown')}
+Merged By: {pr_metadata.get('merged_by_login', 'Not merged')}
+Labels: {pr_metadata.get('labels_str', 'No labels')}
+Additions: {pr_metadata.get('additions', 0)}
+Deletions: {pr_metadata.get('deletions', 0)}
+Changed Files: {pr_metadata.get('changed_files_count', 0)}
+Comments: {pr_metadata.get('comment_count', 0)}
+Reviews: {pr_metadata.get('review_count', 0)}
+Content Length: {pr_metadata.get('content_length', 0)} characters
+Document Type: {pr_metadata.get('document_type', 'Unknown')}
+
+METADATA:
+{json.dumps(pr_metadata, indent=2, default=str)}
+
+CONTENT:
+{pr_content}
+{'='*80}
+
+"""
+            # Write to the log file
+            with open(self.log_file, 'a', encoding='utf-8') as f:
+                f.write(log_entry)
+                
+            # Also log a summary to the console
+            self.logger.info(f"Added PR summary document for PR #{pr_metadata.get('pr_number', 'Unknown')}: {pr_metadata.get('title', 'No title')}")
+            
+        except Exception as e:
+            # Fallback to regular logging if file writing fails
+            self.logger.error(f"Failed to write detailed PR log: {e}")
+            self.logger.info(f"Added PR summary document for PR #{pr_metadata.get('pr_number', 'Unknown')}")
+    
+    def _log_indexing_progress(self, message: str, level: str = "INFO"):
+        """Log indexing progress to the text file."""
+        try:
+            timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+            log_entry = f"[{timestamp}] {level}: {message}\n"
+            
+            with open(self.log_file, 'a', encoding='utf-8') as f:
+                f.write(log_entry)
+                
+        except Exception as e:
+            # Fallback to regular logging if file writing fails
+            self.logger.error(f"Failed to write progress log: {e}")
+    
+    def _log_indexing_summary(self, pr_data_list: List[Dict[str, Any]], chunks: List[Document], vector_store: FAISS):
+        """Log final indexing summary to the text file."""
+        try:
+            summary_entry = f"""
+{'='*80}
+INDEXING PROCESS COMPLETED
+{'='*80}
+Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}
+Total PRs Processed: {len(pr_data_list)}
+Total Document Chunks Created: {len(chunks)}
+Vector Store Dimensions: {vector_store.index.d}
+Vector Store Total Documents: {vector_store.index.ntotal}
+Device Used: {self.device}
+Batch Size: {self.batch_size}
+Embedding Model: {self.config.embedding_model}
+Chunk Size: {self.config.chunk_size}
+Chunk Overlap: {self.config.chunk_overlap}
+
+PR STATISTICS:
+{'-'*40}
+"""
+            # Add PR-level statistics
+            pr_numbers = [pr.get('pr_number', 'Unknown') for pr in pr_data_list]
+            total_additions = sum(pr.get('additions', 0) for pr in pr_data_list)
+            total_deletions = sum(pr.get('deletions', 0) for pr in pr_data_list)
+            total_comments = sum(len(pr.get('comments', [])) for pr in pr_data_list)
+            total_reviews = sum(len(pr.get('reviews', [])) for pr in pr_data_list)
+            
+            summary_entry += f"""
+Total Additions: {total_additions}
+Total Deletions: {total_deletions}
+Total Comments: {total_comments}
+Total Reviews: {total_reviews}
+PR Range: {min(pr_numbers) if pr_numbers else 'N/A'} to {max(pr_numbers) if pr_numbers else 'N/A'}
+
+CHUNK STATISTICS:
+{'-'*40}
+"""
+            # Add chunk-level statistics
+            if chunks:
+                chunk_lengths = [len(chunk.page_content) for chunk in chunks]
+                avg_length = sum(chunk_lengths) / len(chunk_lengths)
+                summary_entry += f"""
+Average Chunk Length: {avg_length:.1f} characters
+Min Chunk Length: {min(chunk_lengths)} characters
+Max Chunk Length: {max(chunk_lengths)} characters
+"""
+            
+            summary_entry += f"{'='*80}\n\n"
+            
+            # Write to the log file
+            with open(self.log_file, 'a', encoding='utf-8') as f:
+                f.write(summary_entry)
+                
+            # Also log to console
+            self.logger.info(f"Indexing completed successfully. Log saved to: {self.log_file}")
+            
+        except Exception as e:
+            # Fallback to regular logging if file writing fails
+            self.logger.error(f"Failed to write indexing summary: {e}")
+    
     def _detect_device(self) -> str:
         """Detect the best device for Colab."""
         if self.config.device != "auto":
@@ -197,7 +370,7 @@ class ColabPRIndexer:
             
         print(f"✅ Successfully loaded {len(pr_data_list)} PRs")
         return pr_data_list
-        
+            
     def _validate_pr_data(self, pr_data: Dict[str, Any]) -> bool:
         """Validate PR data structure."""
         required_fields = ['pr_number', 'title', 'body']
@@ -298,14 +471,35 @@ class ColabPRIndexer:
         
         output_documents.append(Document(page_content=main_content, metadata=summary_metadata))
         
+        # Log the PR summary document
+        self._log_pr_summary(summary_metadata, main_content)
+        
         # --- CHANGED: Create a separate document for EACH file change ---
         changed_files = pr_data.get('files', [])
         if changed_files:
+            self._log_indexing_progress(f"Processing {len(changed_files)} changed files for PR #{pr_number}", "INFO")
+            
+            # Debug: Log the structure of the first file to understand the format
+            if changed_files:
+                first_file = changed_files[0]
+                self._log_indexing_progress(
+                    f"Sample file structure for PR #{pr_number}: keys={list(first_file.keys())}, "
+                    f"has_file_diff={'file_diff' in first_file}, "
+                    f"has_patch={'patch' in first_file}", 
+                    "DEBUG"
+                )
+            
             for file_change in changed_files:
                 file_path = file_change.get('file_path')
-                patch = file_change.get('patch', '').strip()
+                # FIXED: Use 'file_diff' instead of 'patch' to match the actual JSON structure
+                file_diff = file_change.get('file_diff', '').strip()
                 
-                if not file_path or not patch:
+                if not file_path:
+                    self._log_indexing_progress(f"Skipping file change with no path in PR #{pr_number}", "WARNING")
+                    continue
+                    
+                if not file_diff:
+                    self._log_indexing_progress(f"Skipping file change with no diff for {file_path} in PR #{pr_number}", "WARNING")
                     continue
                     
                 # Create content specifically for this file's changes
@@ -313,7 +507,7 @@ class ColabPRIndexer:
                     f"# File Change in PR #{pr_number}: `{file_path}`\n\n"
                     f"**Status:** {file_change.get('status', 'modified')}\n\n"
                     f"```diff\n"
-                    f"{patch}\n"
+                    f"{file_diff}\n"
                     f"```"
                 )
                 
@@ -329,12 +523,18 @@ class ColabPRIndexer:
                 })
                 
                 output_documents.append(Document(page_content=file_content, metadata=file_metadata))
+                self._log_file_details(file_metadata, file_content)
+                
+                self._log_indexing_progress(f"Created file document for {file_path} in PR #{pr_number}", "INFO")
+        else:
+            self._log_indexing_progress(f"No changed files found for PR #{pr_number}", "INFO")
                 
         return output_documents
 
     def process_documents(self, pr_data_list: List[Dict[str, Any]]) -> List[Document]:
         """Convert PR data to documents and split into chunks."""
         print(f"🔄 Processing {len(pr_data_list)} PRs into documents")
+        self._log_indexing_progress(f"Processing {len(pr_data_list)} PRs into documents", "INFO")
         
         documents = []
         for pr_data in tqdm(pr_data_list, desc="Creating documents"):
@@ -342,13 +542,32 @@ class ColabPRIndexer:
                 # --- CHANGED: Use extend to handle the list of documents from the updated function ---
                 docs = self.format_pr_to_document(pr_data)
                 documents.extend(docs)
+                
+                # Log detailed information about what was created for this PR
+                pr_num = pr_data.get('pr_number', 'unknown')
+                summary_docs = [d for d in docs if d.metadata.get('document_type') == 'summary_discussion']
+                file_docs = [d for d in docs if d.metadata.get('document_type') == 'file_change']
+                
+                self._log_indexing_progress(
+                    f"PR #{pr_num}: Created {len(summary_docs)} summary + {len(file_docs)} file documents = {len(docs)} total", 
+                    "INFO"
+                )
+                
+                # Log progress every 10 PRs
+                if len(documents) % 10 == 0:
+                    self._log_indexing_progress(f"Processed {len(documents)} documents so far", "INFO")
+                    
             except Exception as e:
-                self.logger.error(f"Error processing PR {pr_data.get('pr_number', 'unknown')}: {e}")
+                error_msg = f"Error processing PR {pr_data.get('pr_number', 'unknown')}: {e}"
+                self._log_indexing_progress(error_msg, "ERROR")
+                self.logger.error(error_msg)
         
         print(f"✅ Created {len(documents)} documents (including separate diffs)")
+        self._log_indexing_progress(f"Created {len(documents)} documents (including separate diffs)", "INFO")
         
         # Split into chunks
         print("✂️ Splitting documents into chunks...")
+        self._log_indexing_progress("Splitting documents into chunks", "INFO")
         chunks = self.text_splitter.split_documents(documents)
         
         # Add chunk-specific metadata
@@ -359,6 +578,7 @@ class ColabPRIndexer:
             ).hexdigest()[:12]
         
         print(f"✅ Created {len(chunks)} document chunks")
+        self._log_indexing_progress(f"Created {len(chunks)} document chunks", "INFO")
         
         # Chunk statistics
         if chunks:
@@ -368,6 +588,9 @@ class ColabPRIndexer:
             print(f"   Average length: {avg_length:.1f} characters")
             print(f"   Min length: {min(lengths)} characters")
             print(f"   Max length: {max(lengths)} characters")
+            
+            # Log chunk statistics
+            self._log_indexing_progress(f"Chunk statistics - Avg: {avg_length:.1f}, Min: {min(lengths)}, Max: {max(lengths)}", "INFO")
         
         return chunks
 
@@ -418,29 +641,40 @@ class ColabPRIndexer:
     def run_indexing(self):
         """Main indexing process."""
         print("🎯 === Starting Ansible PR Indexing Process ===")
+        self._log_indexing_progress("=== Starting Ansible PR Indexing Process ===", "INFO")
         
         try:
             print(f"📁 Loading PR data from {self.config.data_dir}")
+            self._log_indexing_progress(f"Loading PR data from {self.config.data_dir}", "INFO")
             pr_data_list = self.load_pr_data(self.config.data_dir)
             
+            self._log_indexing_progress(f"Loaded {len(pr_data_list)} PR files", "INFO")
             chunks = self.process_documents(pr_data_list)
             
             if not chunks:
                 raise ValueError("No valid document chunks created")
             
+            self._log_indexing_progress(f"Created {len(chunks)} document chunks", "INFO")
             vector_store = self.create_vector_store(chunks)
             
+            self._log_indexing_progress("Vector store created successfully", "INFO")
             self.save_vector_store(vector_store, self.config.output_dir)
+            
+            # Log final summary
+            self._log_indexing_summary(pr_data_list, chunks, vector_store)
             
             print("🎉 === Indexing Process Completed Successfully ===")
             print(f"📊 Total PRs processed: {len(pr_data_list)}")
             print(f"📄 Document chunks created: {len(chunks)}")
             print(f"💾 Vector store saved to: {self.config.output_dir}")
+            print(f"📝 Detailed log saved to: {self.log_file}")
             
             return vector_store
             
         except Exception as e:
-            self.logger.error(f"Indexing process failed: {e}")
+            error_msg = f"Indexing process failed: {e}"
+            self._log_indexing_progress(error_msg, "ERROR")
+            self.logger.error(error_msg)
             raise
 
 

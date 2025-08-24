@@ -120,28 +120,27 @@ class RAGCore:
     
     def _get_pr_specific_docs(self, question: str) -> Tuple[Optional[int], List[Document]]:
         """
-        Detects a PR number in a question and retrieves all associated documents.
+        Detects a PR number and brute-forces the search across all documents in FAISS.
+        NOTE: This is inefficient but works around FAISS's lack of pre-filtering.
         """
-        # --- IMPROVED: Updated regex to handle "PR number 123" ---
         match = re.search(r'(?:pr|pull request|pr-)\s*(?:number\s*)?#?(\d+)', question, re.IGNORECASE)
-        
         if not match:
             self.logger.info("No specific PR number detected in query. Using generic similarity search.")
             return None, []
-        
         pr_number = int(match.group(1))
-        self.logger.info(f"Detected specific query for PR #{pr_number}.")
-
-        # Fetch a large number of docs and filter them by metadata in Python.
-        # This is a robust way to ensure all chunks for a specific PR are found.
-        all_docs = self.vector_store.similarity_search(question, k=200)
-        
+        self.logger.info(f"Detected specific query for PR #{pr_number}. Brute-forcing FAISS search.")
+ 
+        # --- THE WORKAROUND ---
+        # 1. Set 'k' to the total number of documents in the index.
+        total_docs = self.vector_store.index.ntotal
+        # 2. Perform a similarity search across the ENTIRE database.
+        all_docs = self.vector_store.similarity_search(question, k=total_docs)
+        # 3. Filter the results in Python (this will now find the PR).
         pr_specific_docs = [
             doc for doc in all_docs 
             if doc.metadata.get("pr_number") == pr_number
         ]
-        
-        self.logger.info(f"Retrieved {len(pr_specific_docs)} document chunks for PR #{pr_number}.")
+        self.logger.info(f"Retrieved {len(pr_specific_docs)} document chunks for PR #{pr_number} after full index scan.")
         return pr_number, pr_specific_docs
 
     def answer_question(self, question: str) -> Dict[str, Any]:
