@@ -4,12 +4,6 @@
 
 ### GitWit wants to say hi! Watch the video in this folder 📽️.
 
-<p align="center">
-<video src="https://raw.githubusercontent.com/TheDiscoveryBoys/PRs4Dummies/main/GitwitIntro.mp4" controls="controls" style="max-width: 720px;">
-Your browser does not support the video tag. <a href="https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/main/GitwitIntro.mp4">Click here to watch the video</a>
-</video>
-</p>
-
 ## NB NB NB PLEASE READ
 `Keep in mind that this is a process. There is a fair bit of set up involved due to the multiple steps involved and the usage of google colab due to hardware constraints.` **You will not need to run the scraper nor the indexer. The resultant files of the indexer can be downloaded by following the instructions within /indexing/vector_store/vector_store_files.txt**. 
 
