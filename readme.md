@@ -2,9 +2,7 @@
 
 ## 🎥 Demo Video
 
-GitWit wants to say hi! Watch the video in this folder 📽️.
-
-*Video: GitWit Introduction - See how the bot answers questions about GitHub PRs*
+### GitWit wants to say hi! Watch the video in this folder 📽️.
 
 ---
 
