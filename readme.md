@@ -220,7 +220,7 @@ graph TD
 | 📄 "No JSON files found" | Ensure files uploaded to `scraped_data_converted/` directory |
 
 ## 🎯 **Next Steps After Indexing**
-0. **You can access the index files by following the instructions found within /indexing/vector_store/vector_store_files.txt. Put those downloaded files in /indexing/vector_store**
+0. **You can access the index files by following the instructions found within /indexing/vector_store/vector_store_files.txt or downloading them with the provided google drive link at the top of this section. Put those downloaded files in /indexing/vector_store**
 1. **Download** the `vector_store` folder and its contents produced by your indexing on google colab.
 2. **Extract** in your local `prs4dummies/indexing/` directory
 3. **Continue** to the next step to run your bot and ask it questions!
