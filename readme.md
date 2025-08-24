@@ -4,6 +4,7 @@
 
 ### GitWit wants to say hi! Watch the video in this folder 📽️.
 
+https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/871bae4ddcdb5df3d648e2ae96044b505391bd80/GitwitIntro.mp4
 ---
 
 ## NB NB NB PLEASE READ
