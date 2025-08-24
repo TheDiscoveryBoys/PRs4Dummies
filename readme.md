@@ -281,7 +281,7 @@ Example:
 ```bash
 @GitWit Tell me about the changes made on PR #85673? What goal is it trying to achieve?
 ```
-
+Discord has some issues with directly copy-pasting @'s. If you copy the above question into discord GitWit may not recognise it. We recommend that you type @GitWit every time in the chat and refrain from pasting it. Thank you.
 Please consult the demo video for more examples of the bot working :).
 
 And GitWit will use it's wit to check git and provide you with a response that's legit. Mostly legit. 
