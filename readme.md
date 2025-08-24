@@ -1,10 +1,11 @@
 <div align="center">
   <img src="https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/main/GitWitLogo.png?raw=true" alt="GitWit Logo" width="150"/>
-       <h1>GitWit</h1>
+       <h1>GitWit - By PRs4Dummies</h1>
   <em>By Shashin Gounden, Kyle Wilkins, and Gregory Maselle</em>
 </div>
 <br>
-# HOW DO I RUN THIS THING?
+
+## HOW DO I RUN THIS THING?
 ---
 
 ## NB NB NB PLEASE READ
