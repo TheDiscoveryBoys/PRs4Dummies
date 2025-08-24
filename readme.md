@@ -5,6 +5,13 @@
 </div>
 <br>
 
+GitWit is a discord bot that exists to help people understand pull requests on specific github repos.
+
+1. Ask for more context about the changes made on a PR.
+2. Get information about a PR like who commented, what was commented, etc.
+3. Get information about approvers, authors, and mergers of a PR if you ever want to follow up with more questions 😉.
+4. Ask which PRs are related to a specific feature change. An example will be included at the end of the readme so keep reading 😼.
+
 ## HOW DO I RUN THIS THING?
 ---
 
@@ -282,7 +289,7 @@ Once you are on the server, go to general and ask the bot a question by @'ing th
 
 Example:
 ```bash
-@GitWit Who commented on PR #85673?
+@GitWit Tell me about the changes made on PR #85673? What goal is it trying to achieve?
 ```
 
 Please consult the demo video for more examples of the bot working :).
