@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/main/GitWitLogo.png?raw=true" alt="GitWit Logo" width="100"/>
-        <h1>GitWit - By PRs4Dummies</h1>
+  <img src="https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/main/GitWitLogo.png?raw=true" alt="GitWit Logo" width="150"/>
+       <h1>GitWit - By PRs4Dummies</h1>
   <em>By Shashin Gounden, Kyle Wilkins, and Gregory Maselle</em>
 </div>
 <br>
@@ -17,70 +17,17 @@
 
 A high-performance, multi-method GitHub repository scraper specifically designed for extracting pull request data from the Ansible repository. This enhanced version implements multiple efficient GitHub API approaches with improved error handling, rate limiting, and performance optimizations.
 
-# 📒 Note on versions
-
-You will see scraper\.py and scraper_enhanced.py. **Run scraper_enhanced.py**. scraper\.py is a legacy program that may have value for testing reasons and has been allowed to stay for that reason. **Use scraper_enhanced.py**.
-
-## 🚀 Key Features
-
-- **Multiple API Methods**: Choose from 4 different GitHub API approaches
-- **Enhanced Performance**: Up to 10x faster than the original scraper
-- **Robust Error Handling**: Automatic retries, rate limiting, and graceful degradation
-- **Streaming Processing**: Memory-efficient processing of large numbers of PRs
-- **Comprehensive Data Extraction**: Full PR content including comments, reviews, and diffs
-- **Configurable Settings**: Customizable timeouts, retries, and batch sizes
-
-## 🔧 API Methods
-
-### 1. **Direct Repository API** (Recommended - Fastest)
-- **Method**: `--api-method direct`
-- **Benefits**: 
-  - Direct access to repository data
-  - Higher rate limits (5000 requests/hour with token)
-  - More reliable than search API
-  - Can fetch unlimited PRs with pagination
-- **Best for**: High-volume scraping with authentication
-### 2. **REST API with Pagination** (Good Performance)
-- **Method**: `--api-method rest`
-- **Benefits**:
-  - Better control over pagination
-  - Can handle very large numbers of PRs
-  - Returns raw JSON data (faster processing)
-- **Best for**: Large-scale scraping with custom pagination control
-
-### 3. **GraphQL API** (Most Efficient)
-- **Method**: `--api-method graphql`
-- **Benefits**:
-  - Single request can fetch multiple pages
-  - Gets only the data you need
-  - Most efficient for large datasets
-  - Can fetch 100 PRs per request
-- **Best for**: Maximum efficiency with authentication token
-- **Requires**: GitHub personal access token
-
-### 4. **Search API** (Legacy - Slower)
-- **Method**: `--api-method search`
-- **Benefits**: Original method for comparison
-- **Limitations**: Hard limit of 1000 results, slower performance
-- **Best for**: Backward compatibility
-
 ## 📋 Requirements
-
+In /scraper run the following:
 ```bash
-pip install -r requirements-improved.txt
+pip install -r requirements.txt
 ```
-
-**Note**: The `requirements-improved.txt` file contains all necessary dependencies including:
-- PyGithub
-- gitpython  
-- requests
-- python-dotenv
-- Additional enhanced features and optimizations
 
 ## 🔑 Authentication
 
 ### Option 1: Environment Variable (Recommended)
-Create a `.env` file in your project directory:
+Create a `.env` file in your root project directory:
+This github token must have repo access, enabling it to acces public repositories.
 ```bash
 GITHUB_TOKEN=your_github_personal_access_token
 ```
@@ -98,6 +45,7 @@ export GITHUB_TOKEN=your_github_personal_access_token
 ## 🚀 Usage
 
 Note that for our purposes we only included PRs that were merged.
+Additionally, this may take a short while to start up.
 ### Basic Usage
 ```bash
 # Scrape 50 merged PRs using the fastest method (direct API)
@@ -106,27 +54,12 @@ python scraper_enhanced.py --num-prs 50
 # Scrape 100 PRs with custom output directory
 python scraper_enhanced.py --num-prs 100 --output-dir my_data
 
-# Use GraphQL API for maximum efficiency
-python scraper_enhanced.py --num-prs 200 --api-method graphql
-
 ```
 
 ### Advanced Usage
 ```bash
 # Scrape all PRs (merged and unmerged) with batching support
 python scraper_enhanced.py --num-prs 1000 --include-unmerged
-
-# Customize performance settings
-python scraper_enhanced.py --num-prs 500 \
-    --max-workers 5 \
-    --batch-size 25 \
-    --timeout 30 \
-    --max-retries 5
-
-# Use REST API with custom settings
-python scraper_enhanced.py --num-prs 300 \
-    --api-method rest \
-    --output-dir rest_api_data
 
 # Here is a sample format of choosing a specific repo you want to scrape PRs from. Remember to include organisation/username before the repo name!!
 python3 scraper_enhanced.py --repo=ShashinGoundenBBD/FUpBoard
@@ -160,23 +93,6 @@ scraped_data/
 └── scrape_summary.json     # Summary of all scraped PRs
 ```
 
-## ⚡ Performance Comparison
-
-| API Method | Speed | Rate Limit | Best For |
-|------------|-------|------------|----------|
-| **Direct** | ⭐⭐⭐⭐⭐ | 5000/hr | High-volume scraping |
-| **REST** | ⭐⭐⭐⭐ | 5000/hr | Custom pagination |
-| **GraphQL** | ⭐⭐⭐⭐⭐ | 5000/hr | Maximum efficiency |
-| **Search** | ⭐⭐ | 1000/hr | Legacy compatibility |
-
-## 🛡️ Error Handling & Reliability
-
-- **Automatic Retries**: Configurable retry logic with exponential backoff
-- **Rate Limiting**: Intelligent rate limiting with automatic backoff
-- **Graceful Degradation**: Falls back to alternative methods on failure
-- **Signal Handling**: Graceful shutdown on Ctrl+C
-- **Progress Tracking**: Real-time progress updates and ETA calculations
-
 ## 🔍 Troubleshooting
 
 ### Common Issues
@@ -196,29 +112,37 @@ scraped_data/
    - Check token expiration
    - Ensure token has `repo` scope for private repositories
 
-### Performance Tips
+## Converting The Scraped Data
 
-- Use `--api-method direct` for best performance
-- Set `--max-workers` to 3-5 for optimal balance
-- Use `--batch-size` of 10-25 for memory efficiency
-- Enable `--merged-only` to focus on relevant PRs
+Once you have scraped the data and /scraped_data contains the jsons for the PRs you want, run the following:
 
-## 📈 Scaling Considerations
+```bash
+python convert_scraped_data.py
+```
 
-- **Small Scale** (< 100 PRs): Use default settings
-- **Medium Scale** (100-500 PRs): Increase `--max-workers` to 5
-- **Large Scale** (500+ PRs): Use `--api-method graphql` with `--batch-size 25`
-- **Very Large Scale** (1000+ PRs): Consider running multiple instances with different date ranges
+This will output the formatted scraped data in **/scraped_data_converted**. You will use this for the indexing in the next step.
 
+Here are already scraped files for you to use. It correlates to roughly ~10000 PRs on the Ansible repo.
+```bash
+https://drive.google.com/file/d/1avXcmIlsOnveXfw0QzATwosMLhUNaqS2/view?usp=sharing
+```
 ---
 
 # Indexing With Google Colab
 
 This directory contains everything needed to run **high-performance PR indexing on Google Colab** with GPU acceleration.
 
+This step involving colab can be skipped as it may take quite long depending on the number of PRs that need to be indexed. You can find prepared index files here (HIGHLY recommended):
+
+```bash
+https://drive.google.com/drive/folders/1p50rDYsWNdiWqZ1sVtCdv_2KMmpvjz1T?usp=sharing
+```
+
+This should not take long to download, approximately 1-2 minutes.
+
 ## 🎯 **Why Use Colab?**
 
-Simply put, we did not have the hardware we required for the indexer. We use an A100 GPU on google colab to perform the indexing. Note that this is paid. I will reiterate: This step will not be necessary because the repo will have the index files in /indexing/vector_store already for the indexing of ansible repo PRs. If you would like to do this on your own repo, you may need to pay for compute units on colab or use a smaller and less resource intensive embedding model.
+Simply put, we did not have the hardware we required for the indexer. We use an A100 GPU on google colab to perform the indexing. Note that this is paid. I will reiterate: This step will not be necessary because the repo will have instructions on how to download the prepared index files in /indexing/vector_store already for the indexing of ansible repo PRs. If you would like to do this on your own repo, you may need to pay for compute units on colab or use a smaller and less resource intensive embedding model that would work on a T4 GPU runtime.
 
 ## 📦 **How to set up**
 
@@ -232,9 +156,10 @@ Simply put, we did not have the hardware we required for the indexer. We use an 
 ###  **Setup Environment**
 ```python
 # In a new Colab notebook cell:
-!wget https://github.com/TheDiscoveryBoys/PRs4Dummies/raw/colab-attempt/colab/setup_colab.py
-!python setup_colab.py
+!wget https://raw.githubusercontent.com/TheDiscoveryBoys/PRs4Dummies/refs/heads/main/prs4dummies/colab/setup_colab.py 
 ```
+
+Note that this will take several minutes, especially the installation of sentence-transformers.
 
 ### **Upload Your Data** 
 Create a new folder within /content/ named **/scraped_data_converted**. You would then take the zipped scraped files and run the following to get the scraped data in your runtime. Ensure that your scraped data is in a path like so: ```content/scraped_data_converted/PRXXXXX.json```
@@ -245,8 +170,7 @@ Create a new folder within /content/ named **/scraped_data_converted**. You woul
 ```
 ```python
 # Upload the setup and indexer scripts
-!wget https://github.com/TheDiscoveryBoys/PRs4Dummies/raw/colab-attempt/colab/colab_indexer.py
-!wget https://github.com/TheDiscoveryBoys/PRs4Dummies/raw/colab-attempt/colab/setup_colab.py
+!wget https://raw.githubusercontent.com/TheDiscoveryBoys/PRs4Dummies/refs/heads/main/prs4dummies/colab/colab_indexer.py
 ```
 ### **Run The Files**
 Then you run the setup_colab script, followed by the colab_indexer. 
@@ -258,25 +182,16 @@ Then you run the setup_colab script, followed by the colab_indexer.
 Depending on how many scraped files you have, this can take between 5 and 20 minutes.
 
 ### 3️⃣ **Download Results**
-The script automatically creates and downloads a `vector_store.zip` file containing your embeddings.
+
+The script automatically creates a `vector_store` folder containing your embeddings. You will need to download this for the next step.
 
 ---
 
 ## ⚙️ **Configuration Options**
 
-### **Embedding Models **
+### **Embedding Models**
 
 We use jinaai/jina-embeddings-v2-base-code as our embedder. It is relatively lightweight and is catered towards understanding and embedding code more effectively.
-
-### **Batch Sizes (GPU Memory)**
-
- Recommended Batch Size | Max Dataset |
-----------------------|-------------|
- 32-64 | ~500 PRs |
- 64-128 | ~1000 PRs |
- 128-256 | ~2000+ PRs |
-
----
 
 ## 🔄 **Data Flow**
 
@@ -307,32 +222,20 @@ graph TD
 | 🐌 "Very slow processing" | Check GPU is enabled and being used |
 | 📄 "No JSON files found" | Ensure files uploaded to `scraped_data_converted/` directory |
 
-### **Memory Optimization**
-
-```python
-# If running out of memory:
-config = ColabIndexingConfig(
-    batch_size=16,          # Reduce batch size
-    chunk_size=1000,        # Smaller chunks
-    device="cuda"
-)
-
-# For very large datasets:
-config = ColabIndexingConfig(
-    embedding_model="all-MiniLM-L6-v2",  # Smaller model
-    batch_size=32,
-    max_workers=2           # Reduce parallelism
-)
-```
-
 ## 🎯 **Next Steps After Indexing**
-0. **You can access the index files by following the instructions found within /indexing/vector_store/vector_store_files.txt. Put those downloaded files in /indexing/vector_store
-1. **Download** the `vector_store.zip` file
+0. **You can access the index files by following the instructions found within /indexing/vector_store/vector_store_files.txt. Put those downloaded files in /indexing/vector_store**
+1. **Download** the `vector_store` folder and its contents produced by your indexing on google colab.
 2. **Extract** in your local `prs4dummies/indexing/` directory
 3. **Continue** to the next step to run your bot and ask it questions!
 
+For your convenience, we have provided the google drive link for the index folders here as well.
+```bash
+https://drive.google.com/drive/folders/1p50rDYsWNdiWqZ1sVtCdv_2KMmpvjz1T?usp=sharing
+```
+We highly recommend that you use these files.
+These files are very large. They should not take too long to download ~1-2 minutes. If this is not viable, for testing purposes we recommend scraping approximately 50 PRs and using the resulting index files from that in the next step. The accuracy of the bot will vary and will be limited to those specific PRs though.
 
-## 🔗 **Links**
+### 🔗 **Documentation Links**
 
 - [Google Colab](https://colab.research.google.com)
 - [FAISS Documentation](https://faiss.ai/cpp_api/)
@@ -352,18 +255,23 @@ OPENAI_API_KEY="sk-your-key-..."
 DISCORD_TOKEN="your-discord-token"
 ```
 
-Please message Gregory Maselle, Kyle Wilkins, or Shashin Gounden for the discord token if you wish to run the bot on your side.
+Please message Gregory Maselle, Kyle Wilkins, or Shashin Gounden for the discord token if you wish to run the bot on your local machine with minimal additional setup. This is highly advised.
 
-**1.** Navigate to the /rag-core folder in the repo.
+**1.** Navigate to the /rag-core folder in the repo in your terminal.
+```bash
+cd rag-core/
+```
 
 **2.** In the terminal run 
 ```bash
 python main.py
 ```
+This will run the API the bot uses to answer questions.
 You may have some missing dependencies, we ask that you pip install them.
 
-**3.** In the terminal run 
+**3.** Navigate to prs4dummies/discord-bot in another terminal and run the bot python script. You may need to pip install some dependencies.
 ```bash
+cd prs4dummies/discord-bot
 python bot.py
 ```
 This will spin up the discord bot.
