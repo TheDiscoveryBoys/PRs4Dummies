@@ -1,9 +1,8 @@
 # HOW DO I RUN THIS THING?
 
 ## 🎥 Demo Video
-Watch a quick introduction to GitWit in action:
 
-https://github.com/TheDiscoveryBoys/PRs4Dummies/assets/123456789/GitwitIntro.mp4
+GitWit wants to say hi! Watch the video in this folder 📽️.
 
 *Video: GitWit Introduction - See how the bot answers questions about GitHub PRs*
 
