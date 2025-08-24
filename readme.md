@@ -3,11 +3,9 @@
 ## 🎥 Demo Video
 Watch a quick introduction to GitWit in action:
 
-https://user-images.githubusercontent.com/123456789/123456789-abcdef12-3456-7890-abcd-ef1234567890.mp4
+https://github.com/TheDiscoveryBoys/PRs4Dummies/assets/123456789/GitwitIntro.mp4
 
 *Video: GitWit Introduction - See how the bot answers questions about GitHub PRs*
-
-**Note**: If the video doesn't play, you can download it and view it locally.
 
 ---
 
