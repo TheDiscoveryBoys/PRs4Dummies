@@ -40,7 +40,7 @@ class ColabIndexingConfig:
     """Configuration optimized for Google Colab."""
     
     # Data paths (Colab-specific)
-    data_dir: str = "scraped_data"
+    data_dir: str = "scraped_data_converted"
     output_dir: str = "vector_store"
     
     # Embedding model (optimized for Colab GPU)
@@ -214,33 +214,56 @@ class ColabPRIndexer:
             
         return True
 
-    # --- CHANGED: This function now returns a LIST of documents ---
     def format_pr_to_document(self, pr_data: Dict[str, Any]) -> List[Document]:
-        """Transform PR data into multiple documents: one for summary/discussion, one for the diff."""
+        """
+        Transforms PR data into multiple, granular documents:
+        1. A main document for the summary, metadata, and discussion.
+        2. A separate document for EACH changed file's code patch.
+        """
         pr_number = pr_data.get('pr_number', 'unknown')
         title = pr_data.get('title', 'No title')
         
         output_documents = []
 
-        # --- Document 1: Summary and Discussion ---
-        content_parts = []
-        
-        # Header section
-        content_parts.append(f"# Pull Request #{pr_number}: {title}")
-        content_parts.append("")
-        
-        # Metadata section
+        # --- Create rich base metadata for all related documents ---
         author = pr_data.get('author_login', 'Unknown')
         merged_by = pr_data.get('merged_by_login')
         labels = pr_data.get('labels', [])
         
+        base_metadata = {
+            "pr_number": pr_number,
+            "title": title,
+            "author_login": author,
+            "merged_by_login": merged_by or "",
+            "labels": labels,
+            "labels_str": ", ".join(labels),
+            "additions": pr_data.get('additions', 0), # Total additions
+            "deletions": pr_data.get('deletions', 0), # Total deletions
+            
+            # --- CHANGED: Use the new 'changed_files_count' key ---
+            "changed_files_count": pr_data.get('changed_files_count', 0),
+            
+            "comment_count": len(pr_data.get('comments', [])),
+            "review_count": len(pr_data.get('reviews', [])),
+            "source_type": "github_pr",
+            "repository": "ansible/ansible",
+            
+            # --- CHANGED: Use the new 'url' key from the converted data ---
+            "pr_url": pr_data.get('url', f"https://github.com/ansible/ansible/pull/{pr_number}"),
+            "source": pr_data.get('url', f"https://github.com/ansible/ansible/pull/{pr_number}")
+        }
+
+        # --- Document 1: Summary and Discussion ---
+        # This part remains largely the same, building a text block from the PR body and comments.
+        content_parts = [f"# Pull Request #{pr_number}: {title}\n"]
+        
+        # Metadata section
         content_parts.append("## Pull Request Information")
         content_parts.append(f"**Author:** {author}")
         if merged_by:
             content_parts.append(f"**Merged by:** {merged_by}")
         if labels:
             content_parts.append(f"**Labels:** {', '.join(labels)}")
-            
         content_parts.append("")
         
         # Description section
@@ -250,80 +273,63 @@ class ColabPRIndexer:
             content_parts.append(body)
             content_parts.append("")
             
-        # Comments and reviews section
+        # Comments and reviews section (this logic can remain as is)
         comments = pr_data.get('comments', [])
         reviews = pr_data.get('reviews', [])
-        
         if comments or reviews:
             content_parts.append("## Discussion")
-            
-            regular_comments = [c for c in comments if c.get('comment_type') != 'review_comment']
-            for comment in regular_comments:
+            # (Your existing logic for formatting comments and reviews is fine here)
+            for comment in comments:
                 comment_author = comment.get('author_login', 'Unknown')
                 comment_body = comment.get('body', '').strip()
                 if comment_body:
-                    content_parts.append(f"**{comment_author} commented:**")
-                    content_parts.append(comment_body)
-                    content_parts.append("")
-            
+                    content_parts.append(f"**{comment_author} commented:**\n{comment_body}\n")
             for review in reviews:
                 review_author = review.get('author_login', 'Unknown')
-                state = review.get('state', 'commented')
                 review_body = review.get('body', '').strip()
                 if review_body:
-                    content_parts.append(f"**{review_author} {state}:**")
-                    content_parts.append(review_body)
-                    content_parts.append("")
-            
-            inline_comments = [c for c in comments if c.get('comment_type') == 'review_comment']
-            if inline_comments:
-                content_parts.append("### Code Review Comments")
-                for comment in inline_comments:
-                    inline_author = comment.get('author_login', 'Unknown')
-                    inline_body = comment.get('body', '').strip()
-                    file_path = comment.get('file_path', '')
-                    if inline_body:
-                        content_parts.append(f"**{inline_author}** on `{file_path}`:")
-                        content_parts.append(inline_body)
-                        content_parts.append("")
-        
-        # Combine all parts for the main document
+                    content_parts.append(f"**{review_author} reviewed ({review.get('state')}):**\n{review_body}\n")
+
         main_content = "\n".join(content_parts)
         
-        # Create rich metadata for filtering and ranking
-        base_metadata = {
-            "pr_number": pr_number,
-            "title": title,
-            "author_login": author,
-            "merged_by_login": merged_by or "",
-            "labels": labels,
-            "labels_str": ", ".join(labels),
-            "additions": pr_data.get('additions', 0),
-            "deletions": pr_data.get('deletions', 0),
-            "changed_files": pr_data.get('changed_files', 0),
-            "comment_count": len(comments),
-            "review_count": len(reviews),
-            "content_length": len(main_content),
-            "source_type": "github_pr",
-            "document_type": "summary_discussion",
-            "repository": "ansible/ansible",
-            "pr_url": f"[https://github.com/ansible/ansible/pull/](https://github.com/ansible/ansible/pull/){pr_number}",
-            "source": f"[https://github.com/ansible/ansible/pull/](https://github.com/ansible/ansible/pull/){pr_number}"
-        }
+        summary_metadata = base_metadata.copy()
+        summary_metadata["document_type"] = "summary_discussion"
+        summary_metadata["content_length"] = len(main_content)
         
-        output_documents.append(Document(page_content=main_content, metadata=base_metadata))
+        output_documents.append(Document(page_content=main_content, metadata=summary_metadata))
         
-        # --- Document 2: The Code Diff (if it exists) ---
-        diff = pr_data.get('diff', '').strip()
-        if diff and diff != 'null':
-            diff_content = f"# Code Diff for PR #{pr_number}\n**Author:** {author}\n\n```diff\n{diff}\n```"
-            
-            diff_metadata = base_metadata.copy()
-            diff_metadata["document_type"] = "diff"
-            diff_metadata["content_length"] = len(diff_content)
-            
-            output_documents.append(Document(page_content=diff_content, metadata=diff_metadata))
-            
+        # --- CHANGED: Create a separate document for EACH file change ---
+        changed_files = pr_data.get('files', [])
+        if changed_files:
+            for file_change in changed_files:
+                file_path = file_change.get('file_path')
+                patch = file_change.get('patch', '').strip()
+                
+                if not file_path or not patch:
+                    continue
+                    
+                # Create content specifically for this file's changes
+                file_content = (
+                    f"# File Change in PR #{pr_number}: `{file_path}`\n\n"
+                    f"**Status:** {file_change.get('status', 'modified')}\n\n"
+                    f"```diff\n"
+                    f"{patch}\n"
+                    f"```"
+                )
+                
+                # Create specific metadata for this file document
+                file_metadata = base_metadata.copy()
+                file_metadata.update({
+                    "document_type": "file_change",
+                    "file_path": file_path,
+                    "file_status": file_change.get('status'),
+                    "file_additions": file_change.get('additions'),
+                    "file_deletions": file_change.get('deletions'),
+                    "content_length": len(file_content)
+                })
+                
+                output_documents.append(Document(page_content=file_content, metadata=file_metadata))
+                
         return output_documents
 
     def process_documents(self, pr_data_list: List[Dict[str, Any]]) -> List[Document]:
@@ -505,7 +511,7 @@ def upload_data():
     print("\n📤 Upload your scraped PR data (JSON files or a single ZIP file):")
     uploaded = files.upload()
     
-    data_dir = Path("scraped_data")
+    data_dir = Path("scraped_data_converted")
     data_dir.mkdir(exist_ok=True)
     
     import zipfile
@@ -549,7 +555,7 @@ def main():
     if IN_COLAB:
         upload_data()
     
-    data_dir = Path("scraped_data")
+    data_dir = Path("scraped_data_converted")
     if not data_dir.exists() or not any(data_dir.iterdir()):
         print("❌ No JSON files found. Please upload your scraped PR data.")
         return

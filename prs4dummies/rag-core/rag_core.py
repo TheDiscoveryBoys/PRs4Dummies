@@ -1,165 +1,186 @@
-"""
-RAG Core Module for PRs4Dummies (OpenAI Version)
-
-This module contains the core logic for the RAG pipeline using OpenAI's API as the LLM.
-"""
-
 import os
 import logging
-from typing import List, Dict, Any
+import re
+from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 
-# --- CHANGED: Imports for OpenAI and environment variables ---
+# LangChain and environment imports
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-# -----------------------------------------------------------
-
-# LangChain imports
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.prompts import PromptTemplate
+from langchain.chains.question_answering import load_qa_chain
 from langchain.chains import RetrievalQA
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# --- REMOVED: The entire LocalHuggingFaceLLM class and transformers/torch imports ---
-
+from langchain.docstore.document import Document
 
 class RAGCore:
     """Core RAG functionality for answering questions about pull requests."""
     
     def __init__(self, vector_store_path: str = None, embedding_model_name: str = None):
-        """
-        Initialize the RAG core.
-        """
+        """Initialize the RAG core."""
+        # --- ADDED: Setup logging first ---
+        self._setup_logging()
+
         self.vector_store_path = vector_store_path or "vector_store"
         self.embedding_model_name = embedding_model_name or "jinaai/jina-embeddings-v2-base-code"
         
         self.embeddings = None
         self.vector_store = None
         self.llm = None
-        self.rag_chain = None
+        self.prompt_template = None
+        self.generic_rag_chain = None
+        self.specific_qa_chain = None
         
         self._load_components()
-    
+
+    # --- ADDED: Logging setup method ---
+    def _setup_logging(self):
+        """Setup logging for the RAGCore class."""
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
+
     def _load_components(self):
         """Load all necessary components for the RAG pipeline."""
         try:
-            # --- CHANGED: Load API key from .env file ---
             load_dotenv()
             if "OPENAI_API_KEY" not in os.environ:
-                raise ValueError("OPENAI_API_KEY not found. Please set it in your .env file.")
-            # -----------------------------------------------
+                raise ValueError("OPENAI_API_KEY not found in .env file.")
 
-            # Load embedding model (this part stays the same)
-            logger.info(f"Loading embedding model: {self.embedding_model_name}")
+            self.logger.info(f"Loading embedding model: {self.embedding_model_name}")
             self.embeddings = HuggingFaceEmbeddings(
                 model_name=self.embedding_model_name,
-                model_kwargs={
-                    'device': 'cpu',
-                    'trust_remote_code': True
-                }
+                model_kwargs={'device': 'cpu', 'trust_remote_code': True}
             )
             
-            # Load FAISS vector store (this part stays the same)
+            self.logger.info("Loading FAISS vector store...")
             vector_store_dir = Path(self.vector_store_path)
             if not vector_store_dir.exists():
-                raise FileNotFoundError(f"Vector store directory not found: {vector_store_dir}")
-            
-            logger.info("Loading FAISS vector store...")
+                raise FileNotFoundError(f"Vector store not found: {vector_store_dir}")
             self.vector_store = FAISS.load_local(
                 folder_path=str(vector_store_dir),
                 embeddings=self.embeddings,
                 allow_dangerous_deserialization=True
             )
-            logger.info(f"Vector store loaded with {self.vector_store.index.ntotal} documents")
+            self.logger.info(f"Vector store loaded with {self.vector_store.index.ntotal} documents.")
             
-            # --- CHANGED: Initialize OpenAI LLM instead of local model ---
-            logger.info("Initializing OpenAI LLM (gpt-3.5-turbo)...")
-            self.llm = ChatOpenAI(
-                model_name="gpt-3.5-turbo",
-                temperature=0  # Set to 0 for more deterministic, fact-based answers
-            )
-            # -------------------------------------------------------------
+            self.logger.info("Initializing OpenAI LLM (gpt-3.5-turbo)...")
+            self.llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
             
             self._create_prompt_template()
-            self._create_rag_chain()
+            self._create_chains()
             
-            logger.info("RAG core initialized successfully")
-            
+            self.logger.info("RAG core initialized successfully.")
         except Exception as e:
-            logger.error(f"Error loading components: {e}")
+            # --- FIXED: Use self.logger instead of global logger ---
+            self.logger.error(f"Error loading components: {e}")
             raise
-    
+
     def _create_prompt_template(self):
-        """Create the prompt template for the RAG system."""
-        # --- CHANGED: A stricter, more reliable prompt for RAG ---
-        template = """You are an expert Principal Software Engineer and AI assistant. Your task is to provide an insightful analysis of a pull request based on the provided context.
+        """Create a more robust prompt template."""
+        template = """You are an expert AI assistant specializing in software engineering and code analysis. 
+        Your task is to answer questions about GitHub Pull Requests based *only* on the context provided.
 
-        **Instructions:**
-        1.  **Summarize:** Begin with a concise summary of the main purpose of the pull request.
-        2.  **Analyze the "Why":** Based on the code diff and description, infer the developer's likely intent. Why did they make this change? What problem does it solve?
-        3.  **Speculate on Impact:** Use your general software engineering knowledge to speculate on the potential impact of the changes. Consider aspects like performance, maintainability, potential bugs, or improvements to code quality.
-        4.  **Grounding:** Base your analysis primarily on the provided context, but use your expert knowledge to interpret the code and infer intent.
-
-        **CONTEXT FROM THE PULL REQUEST:**
+        **Context from one or more Pull Requests:**
         {context}
 
-        **QUESTION:**
+        **Instructions:**
+        - Analyze the context above to answer the following question.
+        - If the question is about a specific PR number, ensure your answer is based *exclusively* on the documents for that PR.
+        - If the provided context is insufficient to answer the question, state that you do not have enough information. Do not make up information.
+        - Structure your answer clearly and concisely.
+
+        **Question:**
         {question}
 
-        **EXPERT ANALYSIS:**
+        **Answer:**
         """
-        # ---------------------------------------------------------
-        
         self.prompt_template = PromptTemplate.from_template(template)
+
+    def _create_chains(self):
+        """Create the RAG chains for both generic and specific queries."""
+        retriever = self.vector_store.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": 10} 
+        )
+        self.generic_rag_chain = RetrievalQA.from_chain_type(
+            llm=self.llm,
+            chain_type="stuff",
+            retriever=retriever,
+            chain_type_kwargs={"prompt": self.prompt_template},
+            return_source_documents=True
+        )
+
+        self.specific_qa_chain = load_qa_chain(
+            llm=self.llm,
+            chain_type="stuff",
+            prompt=self.prompt_template
+        )
+        self.logger.info("RAG chains created successfully.")
     
-    def _create_rag_chain(self):
-        """Create the RAG chain."""
-        try:
-            retriever = self.vector_store.as_retriever(
-                search_type="similarity",
-                search_kwargs={"k": 75}  # Can increase K for more powerful models like GPT
-            )
-            
-            self.rag_chain = RetrievalQA.from_chain_type(
-                llm=self.llm,
-                chain_type="stuff",
-                retriever=retriever,
-                chain_type_kwargs={"prompt": self.prompt_template},
-                return_source_documents=True
-            )
-            
-            logger.info("RAG chain created successfully")
-            
-        except Exception as e:
-            logger.error(f"Error creating RAG chain: {e}")
-            raise
-    
-    # --- No changes needed for the rest of the file (answer_question, get_vector_store_info, etc.) ---
+    def _get_pr_specific_docs(self, question: str) -> Tuple[Optional[int], List[Document]]:
+        """
+        Detects a PR number in a question and retrieves all associated documents.
+        """
+        # --- IMPROVED: Updated regex to handle "PR number 123" ---
+        match = re.search(r'(?:pr|pull request|pr-)\s*(?:number\s*)?#?(\d+)', question, re.IGNORECASE)
+        
+        if not match:
+            self.logger.info("No specific PR number detected in query. Using generic similarity search.")
+            return None, []
+        
+        pr_number = int(match.group(1))
+        self.logger.info(f"Detected specific query for PR #{pr_number}.")
+
+        # Fetch a large number of docs and filter them by metadata in Python.
+        # This is a robust way to ensure all chunks for a specific PR are found.
+        all_docs = self.vector_store.similarity_search(question, k=200)
+        
+        pr_specific_docs = [
+            doc for doc in all_docs 
+            if doc.metadata.get("pr_number") == pr_number
+        ]
+        
+        self.logger.info(f"Retrieved {len(pr_specific_docs)} document chunks for PR #{pr_number}.")
+        return pr_number, pr_specific_docs
+
     def answer_question(self, question: str) -> Dict[str, Any]:
-        """Answer a question using the RAG pipeline."""
+        """
+        Answer a question using the appropriate RAG strategy.
+        """
         try:
-            if not self.rag_chain:
-                raise RuntimeError("RAG chain not initialized")
+            pr_number, pr_docs = self._get_pr_specific_docs(question)
             
-            logger.info(f"Processing question: {question}")
-            result = self.rag_chain.invoke({"query": question})
-            
-            answer = result.get("result", "No answer generated")
-            source_documents = result.get("source_documents", [])
-            
+            if pr_number is not None:
+                if not pr_docs:
+                    answer = f"I couldn't find any information for PR #{pr_number} in my database."
+                    source_documents = []
+                else:
+                    result = self.specific_qa_chain.invoke(
+                        {"input_documents": pr_docs, "question": question},
+                        return_only_outputs=True
+                    )
+                    answer = result.get("output_text", "No answer generated.")
+                    source_documents = pr_docs
+            else:
+                self.logger.info("Processing generic question with similarity search.")
+                result = self.generic_rag_chain.invoke({"query": question})
+                answer = result.get("result", "No answer generated.")
+                source_documents = result.get("source_documents", [])
+
             sources = []
+            seen_sources = set()
             for doc in source_documents:
-                if hasattr(doc, 'metadata'):
+                source_key = (doc.metadata.get("pr_number"), doc.metadata.get("title"))
+                if source_key not in seen_sources:
                     sources.append({
-                        "source": doc.metadata.get("source", "Unknown"),
                         "pr_number": doc.metadata.get("pr_number", "Unknown"),
                         "title": doc.metadata.get("title", "Unknown"),
+                        "source": doc.metadata.get("source", "Unknown"),
                     })
-            
+                    seen_sources.add(source_key)
+
+            # --- FIXED: Added 'total_sources' to the returned dictionary ---
             return {
                 "answer": answer,
                 "sources": sources,
@@ -167,36 +188,20 @@ class RAGCore:
                 "total_sources": len(sources)
             }
         except Exception as e:
-            logger.error(f"Error answering question: {e}")
+            self.logger.error(f"Error answering question: {e}")
+            # --- FIXED: Added 'total_sources' to the error response for consistency ---
             return {
-                "answer": f"I encountered an error while processing your question: {str(e)}",
+                "answer": f"An error occurred: {str(e)}",
                 "sources": [],
                 "question": question,
-                "total_sources": 0,
-                "error": str(e)
+                "total_sources": 0
             }
-    
+
     def get_vector_store_info(self) -> Dict[str, Any]:
         """Get information about the loaded vector store."""
         if not self.vector_store:
-            return {"error": "Vector store not loaded"}
-        
+            return {"error": "Vector store not loaded."}
         return {
             "total_documents": self.vector_store.index.ntotal,
             "embedding_model": self.embedding_model_name,
         }
-
-if __name__ == "__main__":
-    try:
-        rag = RAGCore()
-        print("RAG Core initialized successfully with OpenAI!")
-        
-        test_question = "Summarize the PR that limited bootstrap package install retries."
-        result = rag.answer_question(test_question)
-        
-        print(f"\nTest Question: {test_question}")
-        print(f"\nAnswer: {result['answer']}")
-        print(f"\nSources: {result['sources']}")
-        
-    except Exception as e:
-        print(f"Error testing RAG core: {e}")
