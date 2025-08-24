@@ -82,11 +82,6 @@ python3 scraper_enhanced.py --repo=ShashinGoundenBBD/FUpBoard
 | `--repo-dir` | Repository clone directory | `ansible_repo_enhanced` | `--repo-dir ansible` |
 | `--merged-only` | Only scrape merged PRs | True | `--merged-only` |
 | `--include-unmerged` | Include unmerged/closed PRs | False | `--include-unmerged` |
-| `--max-workers` | Maximum parallel workers | 3 | `--max-workers 5` |
-| `--batch-size` | PRs per batch | 10 | `--batch-size 25` |
-| `--timeout` | API request timeout (seconds) | 15 | `--timeout 30` |
-| `--max-retries` | Maximum retry attempts | 3 | `--max-retries 5` |
-| `--api-method` | API method to use | `direct` | `--api-method graphql` |
 
 ## 📁 Output Structure
 
