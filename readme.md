@@ -249,8 +249,7 @@ This directory contains everything needed to run **high-performance PR indexing 
 
 ## 🎯 **Why Use Colab?**
 
-Simply put, we did not have the hardware we required for the indexer. We use an A100 GPU on google colab to perform the indexing. 
-
+Simply put, we did not have the hardware we required for the indexer. We use an A100 GPU on google colab to perform the indexing. Note that this is paid. I will reiterate: This step will not be necessary because the repo will have the index files in /indexing/vector_store already for the indexing of ansible repo PRs. If you would like to do this on your own repo, you may need to pay for compute units on colab or use a smaller and less resource intensive embedding model.
 
 ## 📦 **How to set up**
 
