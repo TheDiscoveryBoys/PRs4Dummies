@@ -1,6 +1,6 @@
 # HOW DO I RUN THIS THING?
 
-## 🎥 Demo Video
+## 🎥 Hello!!!
 
 ### GitWit wants to say hi! Watch the video in this folder 📽️.
 
