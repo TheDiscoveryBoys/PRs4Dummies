@@ -1,11 +1,9 @@
 # GitWit
+<img src="https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/main/GitWitLogo.png?raw=true" alt="GitWit Logo" width="200"/>
+
 ## By Shashin Gounden, Kyle Wilkins, and Gregory Maselle
 
 # HOW DO I RUN THIS THING?
-
-## PRs4Dummies Presents:
-
-<img src="https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/main/GitWitLogo.png?raw=true" alt="GitWit Logo" width="200"/>
 ---
 
 ## NB NB NB PLEASE READ
