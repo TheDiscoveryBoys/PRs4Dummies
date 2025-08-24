@@ -1,7 +1,11 @@
 # HOW DO I RUN THIS THING?
 
+## 🎥 Hello!!!
+
+### GitWit wants to say hi! Watch the video in this folder 📽️.
+
 ## NB NB NB PLEASE READ
-`Keep in mind that this is a process. There is a fair bit of set up involved due to the multiple steps involved and the usage of google colab due to hardware constraints.` **You will not need to run the scraper nor the indexer if we have done our jobs correctly. They will be in the repo.** `The instructions for running them will be included though!`
+`Keep in mind that this is a process. There is a fair bit of set up involved due to the multiple steps involved and the usage of google colab due to hardware constraints.` **You will not need to run the scraper nor the indexer. The resultant files of the indexer can be downloaded by following the instructions within /indexing/vector_store/vector_store_files.txt**. 
 
 ---
 
@@ -309,8 +313,6 @@ We use jinaai/jina-embeddings-v2-base-code as our embedder. It is relatively lig
 
 ---
 
----
-
 ## 🔄 **Data Flow**
 
 ```mermaid
@@ -359,7 +361,7 @@ config = ColabIndexingConfig(
 ```
 
 ## 🎯 **Next Steps After Indexing**
-
+0. **You can access the index files by following the instructions found within /indexing/vector_store/vector_store_files.txt. Put those downloaded files in /indexing/vector_store
 1. **Download** the `vector_store.zip` file
 2. **Extract** in your local `prs4dummies/indexing/` directory
 3. **Continue** to the next step to run your bot and ask it questions!
