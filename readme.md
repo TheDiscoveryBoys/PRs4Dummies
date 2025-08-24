@@ -357,16 +357,19 @@ DISCORD_TOKEN="your-discord-token"
 Please message Gregory Maselle, Kyle Wilkins, or Shashin Gounden for the discord token if you wish to run the bot on your side.
 
 **1.** Navigate to the /rag-core folder in the repo.
+
 **2.** In the terminal run 
 ```bash
 python main.py
 ```
 You may have some missing dependencies, we ask that you pip install them.
+
 **3.** In the terminal run 
 ```bash
 python bot.py
 ```
 This will spin up the discord bot.
+
 **4.** Finally, join our discord server and interact with the bot!
 ##### https://discord.gg/9BPum2Ut
 Once you are on the server, go to general and ask the bot a question by @'ing the bot GitWit followed by your question.
