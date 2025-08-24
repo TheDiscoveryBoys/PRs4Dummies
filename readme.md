@@ -1,5 +1,16 @@
 # HOW DO I RUN THIS THING?
 
+## 🎥 Demo Video
+Watch a quick introduction to GitWit in action:
+
+https://user-images.githubusercontent.com/123456789/123456789-abcdef12-3456-7890-abcd-ef1234567890.mp4
+
+*Video: GitWit Introduction - See how the bot answers questions about GitHub PRs*
+
+**Note**: If the video doesn't play, you can download it and view it locally.
+
+---
+
 ## NB NB NB PLEASE READ
 `Keep in mind that this is a process. There is a fair bit of set up involved due to the multiple steps involved and the usage of google colab due to hardware constraints.` **You will not need to run the scraper nor the indexer if we have done our jobs correctly. They will be in the repo.** `The instructions for running them will be included though!`
 
