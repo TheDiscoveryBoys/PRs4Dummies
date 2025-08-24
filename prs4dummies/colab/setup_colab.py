@@ -184,18 +184,6 @@ def main():
     if in_colab:
         download_indexer()
     
-    # Final check
-    print("\\n🔍 Final environment check...")
-    try:
-        import torch
-        import faiss
-        from langchain_community.embeddings import HuggingFaceEmbeddings
-        print("✅ All core dependencies available!")
-    except ImportError as e:
-        print(f"❌ Missing dependency: {e}")
-        print("Please restart runtime and try again")
-        return
-    
     # Print usage
     print_usage()
 
