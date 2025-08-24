@@ -1,0 +1,3 @@
+Please download vector store files from: 
+
+Please keep these files in indexing\vector_store
