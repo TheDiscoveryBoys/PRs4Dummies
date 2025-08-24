@@ -1,6 +1,6 @@
 <div align="center">
+    <h1>GitWit</h1>
   <img src="https://github.com/TheDiscoveryBoys/PRs4Dummies/blob/main/GitWitLogo.png?raw=true" alt="GitWit Logo" width="150"/>
-  <h1>GitWit</h1>
   <em>By Shashin Gounden, Kyle Wilkins, and Gregory Maselle</em>
 </div>
 <br>
