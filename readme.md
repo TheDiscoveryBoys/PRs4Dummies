@@ -282,7 +282,7 @@ Create a new folder within /content/ named **/scraped_data_converted**. You woul
 ```
 ### **Run The Files**
 Then you run the setup_colab script, followed by the colab_indexer. 
-**NB: NOTE THAT IF YOU GET AN ERROR ALONG THE LINES SAYING 'faiss is not found' OR SOME COMPLAIN ABOUT THAT DEPENDENCY, YOU SHOULD BE FINE. IF IT GOT TO THE END IT SHOULD HAVE WORKED CORRECTLY**
+
 ```python
 !python setup_colab.py
 !python colab_indexer.py
